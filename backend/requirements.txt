@@ -1,0 +1,66 @@
+# agent1旅行 后端依赖
+# 本文件列出项目运行所需的所有 Python 第三方库
+# 版本策略：全部使用 == 精确锁定（与当前运行环境实际安装版本一致），保证部署可重现。
+# 升级依赖时请先在测试环境验证，再同步修改此文件。
+
+# Web 框架与服务器
+fastapi==0.139.0              # 现代高性能 Web 框架，用于构建 REST API
+uvicorn[standard]==0.51.0     # ASGI 服务器，用于运行 FastAPI 应用
+python-multipart==0.0.32      # FastAPI 处理表单上传所需
+
+# 数据校验与配置
+pydantic==2.13.4              # 数据模型定义与校验
+pydantic-settings==2.14.2     # 从环境变量/.env 加载配置
+email-validator==2.3.0        # Pydantic 邮箱格式校验
+
+# 数据库 ORM 与迁移
+sqlalchemy[asyncio]==2.0.51   # ORM，支持异步会话
+aiosqlite==0.22.1             # SQLite 异步驱动
+asyncpg==0.31.0               # PostgreSQL 异步驱动
+alembic==1.18.5               # 数据库迁移工具
+
+# 用户认证与安全
+passlib[bcrypt]==1.7.4        # 密码哈希加密
+bcrypt==4.2.1                 # 显式锁定：5.x 对 >72 字节输入抛 ValueError，与 passlib 1.7.4 后端自检不兼容（注册接口 500）
+python-jose[cryptography]==3.5.0  # JWT Token 生成与校验
+
+# AI / LLM / Agent
+langchain==0.3.26             # LLM 应用开发基础框架
+langchain-core==0.3.86        # LangChain 核心库，固定版本避免依赖解析冲突
+langchain-openai==0.2.14      # OpenAI 兼容接口支持（百炼也走这个）
+langgraph==0.2.62             # Agent 工作流编排框架
+langgraph-checkpoint==2.1.2   # LangGraph 状态持久化
+langgraph-sdk==0.1.74         # LangGraph SDK
+
+# MCP 协议（可选：当前代码未直接使用且未随运行环境安装，启用时请自行锁定版本安装）
+# mcp==1.28.1                 # Model Context Protocol 客户端/服务器实现
+# langchain-mcp-adapters==0.0.1  # LangChain 与 MCP 协议适配
+
+# 向量数据库与 RAG
+qdrant-client==1.18.0         # Qdrant 向量数据库客户端
+sentence-transformers==5.6.0  # 文本 Embedding 生成
+
+# 爬虫
+# crawl4ai>=0.4.0             # 基于 LLM 的智能网页内容提取（可选）
+# scrapy>=2.12.0              # 大型爬虫框架（可选）
+# playwright>=1.49.0          # 动态页面渲染（可选）
+apscheduler==3.11.3           # 定时任务调度
+requests==2.34.2              # HTTP 请求，爬虫常用
+beautifulsoup4==4.15.0        # HTML 解析
+
+# 工具与日志
+python-dotenv==1.2.2          # .env 环境变量加载
+loguru==0.7.3                 # 结构化日志
+httpx==0.28.1                 # 异步 HTTP 客户端
+
+# 消息队列（后台任务与 API 解耦）
+arq==0.28.0                   # 基于 Redis 的异步任务队列
+redis==5.3.1                  # Redis 客户端（arq 依赖）
+hiredis==3.4.2                # Redis C 协议解析器，提升吞吐
+
+# 测试依赖（开发环境）
+pytest==8.3.5                 # 测试框架
+pytest-asyncio==0.25.3        # pytest 异步用例支持（asyncio_mode=auto）
+
+# 支付（沙箱）
+# alipay-sdk-python>=4.2.0    # 支付宝 Python SDK（可选）

@@ -1,0 +1,20 @@
+{
+  // tsconfig.node.json：Vite 配置文件专用的 TypeScript 类型检查配置
+  // 作用：为 vite.config.ts 提供独立的编译上下文，避免与前端源码的编译配置冲突
+  "compilerOptions": {
+    // composite：启用项目引用，便于被 tsconfig.json 引用
+    "composite": true,
+    // skipLibCheck：跳过声明文件类型检查
+    "skipLibCheck": true,
+    // module：使用 ESNext 模块系统
+    "module": "ESNext",
+    // moduleResolution：使用 Bundler 解析策略
+    "moduleResolution": "Bundler",
+    // allowSyntheticDefaultImports：允许从没有默认导出的模块进行默认导入
+    "allowSyntheticDefaultImports": true,
+    // strict：开启严格类型检查
+    "strict": true
+  },
+  // include：仅包含 Vite 配置文件
+  "include": ["vite.config.ts"]
+}

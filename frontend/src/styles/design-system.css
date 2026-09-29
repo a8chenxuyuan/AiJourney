@@ -1,0 +1,880 @@
+/**
+ * src/styles/design-system.css：全局设计系统（2026 现代风）
+ *
+ * 设计理念（参考 2026 主流设计趋势，Apple Liquid Glass / Bento Grid / 沉浸式视觉叙事）：
+ * 1. 设计令牌：颜色/渐变/阴影/圆角统一收敛到 :root 变量，保证全站一致性；
+ * 2. 沉浸式图片叙事：首页 Hero 与灵感模板卡使用真实目的地摄影图，
+ *    深色渐变遮罩 + 大号白字标题，营造"出发感"（Airbnb/Booking 式视觉焦点）；
+ * 3. Liquid Glass 玻璃拟态：导航栏与胶囊使用 backdrop-filter blur+saturate，
+ *    顶部叠加品牌渐变发丝线，质感更接近原生系统玻璃；
+ * 4. Bento Grid 特性格：大小不一的模块化卡片（Apple 发布会式布局）；
+ * 5. 微交互：卡片悬浮上移 + 图片微缩放 + 按钮光晕 + 原生滚动进入动画；
+ * 6. 可访问性：所有毛玻璃均有纯色回退，文字对比度满足 WCAG AA。
+ */
+
+/* ==================== 1. 设计令牌 ==================== */
+:root {
+  /* 品牌渐变（天空蓝 → 海洋青） */
+  --grad-primary: linear-gradient(135deg, #1677ff 0%, #00b4d8 100%);
+  --grad-primary-soft: linear-gradient(135deg, rgba(22, 119, 255, 0.08) 0%, rgba(0, 180, 216, 0.08) 100%);
+  --grad-sunset: linear-gradient(135deg, #ff9a44 0%, #fc6076 100%);
+
+  /* 主色与功能色 */
+  --brand: #1677ff;
+  --brand-cyan: #00b4d8;
+  --accent: #ff7a45;
+  --ink: #0e2239;
+  --ink-2: #44566c;
+  --ink-3: #8695aa;
+
+  /* 页面背景 */
+  --bg-page: #f3f7fc;
+
+  /* 玻璃拟态令牌 */
+  --glass-fill: rgba(255, 255, 255, 0.66);
+  --glass-fill-strong: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-hairline: rgba(255, 255, 255, 0.35);
+
+  /* 阴影体系 */
+  --shadow-sm: 0 1px 3px rgba(14, 34, 57, 0.06);
+  --shadow-md: 0 6px 20px rgba(14, 34, 57, 0.08);
+  --shadow-lg: 0 16px 40px rgba(14, 34, 57, 0.14);
+  --shadow-glow: 0 8px 24px rgba(22, 119, 255, 0.28);
+
+  /* 圆角体系 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+/* ==================== 2. 全局基础 ==================== */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  background-color: var(--bg-page);
+  /* 顶部柔光渐变底色，让玻璃效果有"能量源" */
+  background-image:
+    radial-gradient(900px 480px at 8% -8%, rgba(22, 119, 255, 0.09), transparent 60%),
+    radial-gradient(800px 420px at 96% 4%, rgba(0, 180, 216, 0.09), transparent 60%),
+    radial-gradient(640px 420px at 50% 110%, rgba(255, 122, 69, 0.05), transparent 60%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 全局标题字色与字距 */
+h1, h2, h3, h4 {
+  color: var(--ink);
+  letter-spacing: 0.2px;
+}
+
+/* 自定义滚动条（更细更柔和） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(14, 34, 57, 0.18);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 34, 57, 0.3);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 品牌渐变文字 */
+.gradient-text {
+  background: var(--grad-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 页面进入动画 */
+@keyframes pageFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-fade {
+  animation: pageFadeUp 0.35s ease both;
+}
+
+/* 原生滚动进入动画（渐进增强：不支持的浏览器保持静态可见） */
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: revealUp linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 22%;
+  }
+}
+
+/* ==================== 3. Liquid Glass 导航栏 ==================== */
+.app-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 64px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(14, 34, 57, 0.06);
+  box-shadow: var(--shadow-sm);
+}
+/* 顶部品牌渐变发丝线 */
+.app-navbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--grad-primary);
+  opacity: 0.85;
+}
+
+/* Logo：渐变图标芯片 + 品牌名 */
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.app-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--grad-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: var(--shadow-glow);
+}
+.app-logo-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: 0.5px;
+}
+
+/* 导航胶囊链接 */
+.app-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(14, 34, 57, 0.05);
+  border: 1px solid rgba(14, 34, 57, 0.04);
+  border-radius: 999px;
+  padding: 4px;
+}
+.app-nav-link {
+  padding: 6px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+}
+.app-nav-link:hover {
+  color: var(--brand);
+}
+.app-nav-link.active {
+  background: #fff;
+  color: var(--brand);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* 右侧用户区 */
+.app-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+/* 导航防挤压：禁止文字换行竖排 */
+.app-logo,
+.app-nav-links,
+.app-logo-name,
+.app-nav-link,
+.app-logout-btn {
+  white-space: nowrap;
+}
+.app-logo {
+  flex-shrink: 0;
+}
+.app-nav-links {
+  flex-shrink: 0;
+}
+.app-user-chip .ant-btn {
+  white-space: nowrap;
+}
+.app-user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--grad-sunset);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(252, 96, 118, 0.35);
+}
+.app-logout-btn {
+  border: 1px solid rgba(14, 34, 57, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink-2);
+  border-radius: 999px;
+  padding: 5px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.app-logout-btn:hover {
+  color: #ff4d4f;
+  border-color: rgba(255, 77, 79, 0.4);
+  background: #fff;
+}
+
+/* ==================== 4. 布局容器与页脚 ==================== */
+.app-content {
+  min-height: calc(100vh - 64px - 60px);
+  padding: 28px 24px 56px;
+}
+.app-footer {
+  text-align: center;
+  padding: 24px 16px 28px;
+  color: var(--ink-3);
+  font-size: 13px;
+  border-top: 1px solid rgba(14, 34, 57, 0.06);
+  background: rgba(255, 255, 255, 0.5);
+}
+.app-footer strong {
+  color: var(--ink-2);
+}
+
+/* ==================== 5. 沉浸式图片 Hero ==================== */
+.hero-media {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  min-height: 440px;
+  display: flex;
+  align-items: center;
+  box-shadow: var(--shadow-lg);
+  isolation: isolate;
+}
+.hero-media-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  transform: scale(1.02);
+  animation: heroFloat 18s ease-in-out infinite alternate;
+}
+@keyframes heroFloat {
+  from { transform: scale(1.02) translateX(0); }
+  to { transform: scale(1.08) translateX(-14px); }
+}
+/* 深色渐变遮罩：保证白字对比度（左深右浅，视觉重心在左） */
+.hero-media-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(78deg, rgba(6, 26, 54, 0.82) 0%, rgba(8, 34, 70, 0.52) 46%, rgba(10, 40, 80, 0.18) 100%),
+    linear-gradient(to top, rgba(4, 18, 40, 0.5) 0%, transparent 36%);
+}
+.hero-media-content {
+  position: relative;
+  z-index: 1;
+  padding: 56px 56px 52px;
+  max-width: 640px;
+  color: #fff;
+}
+/* 顶部小徽标 */
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--glass-hairline);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  margin-bottom: 20px;
+}
+.hero-title {
+  font-size: 46px;
+  line-height: 1.18;
+  font-weight: 800;
+  margin: 0 0 16px;
+  color: #fff;
+  letter-spacing: 1px;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+.hero-title em {
+  font-style: normal;
+  background: linear-gradient(90deg, #7fd4ff 0%, #4dd6c6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-subtitle {
+  font-size: 16px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0 0 26px;
+}
+/* Hero 内数据条 */
+.hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.hero-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--glass-hairline);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+}
+.hero-stat b {
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+}
+.hero-stat span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ==================== 6. 通用章节头 ==================== */
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 44px 0 18px;
+}
+.section-head-left h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.section-head-left p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.section-head-tag {
+  font-size: 12px;
+  color: var(--brand);
+  background: rgba(22, 119, 255, 0.08);
+  border: 1px solid rgba(22, 119, 255, 0.18);
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+/* ==================== 7. 灵感模板：图片卡（Bento 风格） ==================== */
+.tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+.tpl-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(14, 34, 57, 0.06);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.tpl-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(22, 119, 255, 0.4);
+  box-shadow: 0 20px 44px rgba(22, 119, 255, 0.2);
+}
+/* 封面图区域 */
+.tpl-cover {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: linear-gradient(135deg, #dceaff 0%, #c9f0f5 100%);
+}
+.tpl-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.55s ease;
+}
+.tpl-card:hover .tpl-cover img {
+  transform: scale(1.07);
+}
+/* 天数徽标（玻璃胶囊） */
+.tpl-days {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(6, 26, 54, 0.45);
+  border: 1px solid var(--glass-hairline);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+/* 卡片文字区 */
+.tpl-body {
+  padding: 14px 16px 16px;
+}
+.tpl-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+.tpl-desc {
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.65;
+  margin: 0 0 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tpl-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--brand);
+  font-weight: 700;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.tpl-card:hover .tpl-cta {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ==================== 8. Bento 特性格 ==================== */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: minmax(150px, auto);
+  gap: 16px;
+}
+.bento-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  background: var(--glass-fill-strong);
+  border: 1px solid rgba(14, 34, 57, 0.05);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.bento-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+.bento-span-2 {
+  grid-column: span 2;
+}
+.bento-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 14px;
+  background: var(--grad-primary-soft);
+  border: 1px solid rgba(22, 119, 255, 0.14);
+}
+.bento-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.bento-desc {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin: 0;
+}
+/* 大卡内的步骤流 */
+.bento-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.bento-step {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(22, 119, 255, 0.07);
+  color: var(--brand);
+  font-weight: 600;
+}
+/* 深色渐变特性格（点缀） */
+.bento-dark {
+  background: linear-gradient(135deg, #0d2f5e 0%, #0a4a63 60%, #0d5f63 100%);
+  border: none;
+  color: #fff;
+}
+.bento-dark .bento-title {
+  color: #fff;
+}
+.bento-dark .bento-desc {
+  color: rgba(255, 255, 255, 0.78);
+}
+.bento-dark .bento-icon {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+/* 装饰光斑 */
+.bento-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(6px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ==================== 9. 规划表单卡 ==================== */
+.plan-card {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: none !important;
+  overflow: hidden;
+}
+/* 顶部品牌渐变条 */
+.plan-card .ant-card-head {
+  position: relative;
+  border-bottom: 1px solid rgba(14, 34, 57, 0.06);
+  padding: 20px 28px;
+}
+.plan-card .ant-card-head::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--grad-primary);
+}
+.plan-card .ant-card-head-title {
+  font-size: 19px;
+  font-weight: 800;
+}
+.plan-card .ant-card-body {
+  padding: 26px 28px 28px;
+}
+/* 分区标题 */
+.form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  letter-spacing: 1px;
+  margin: 6px 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(14, 34, 57, 0.1);
+}
+.form-section-title:first-child {
+  margin-top: 0;
+}
+/* 提交按钮区 */
+.plan-submit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(14, 34, 57, 0.1);
+}
+.plan-submit-tip {
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.6;
+}
+
+/* ==================== 10. Ant Design Vue 组件覆写 ==================== */
+
+/* 卡片：统一大圆角 + 柔和投影 */
+.ant-card {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(14, 34, 57, 0.05);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.ant-card-hoverable:hover,
+.ant-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+.ant-card .ant-card-head {
+  border-bottom: 1px solid rgba(14, 34, 57, 0.06);
+}
+.ant-card .ant-card-head-title {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 主按钮：品牌渐变 + 悬浮光晕 */
+.ant-btn-primary:not([disabled]) {
+  background: var(--grad-primary);
+  border: none;
+  box-shadow: 0 4px 14px rgba(22, 119, 255, 0.3);
+  transition: all 0.25s ease;
+}
+.ant-btn-primary:not([disabled]):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glow);
+}
+.ant-btn-primary:not([disabled]):active {
+  transform: translateY(0);
+}
+.ant-btn {
+  border-radius: var(--radius-sm);
+}
+
+/* 输入框 / 选择器：圆角 + 聚焦品牌色光环 */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select .ant-select-selector,
+.ant-input-number {
+  border-radius: var(--radius-sm) !important;
+}
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector {
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12) !important;
+}
+/* 表单标签加粗微调 */
+.ant-form-item .ant-form-item-label > label {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* 标签：圆角胶囊 */
+.ant-tag {
+  border-radius: 999px;
+}
+
+/* 时间轴：品牌色圆点 */
+.ant-timeline-item-head {
+  background-color: var(--brand);
+}
+
+/* 抽屉：左侧大圆角 */
+.ant-drawer-content-wrapper {
+  box-shadow: -8px 0 32px rgba(14, 34, 57, 0.16) !important;
+}
+
+/* ==================== 11. 登录/注册页 ==================== */
+.auth-shell {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 7vh;
+}
+.auth-card {
+  width: 420px;
+  padding: 8px 8px 4px;
+}
+.auth-brand {
+  text-align: center;
+  margin-bottom: 22px;
+}
+.auth-brand .app-logo-icon {
+  width: 52px;
+  height: 52px;
+  font-size: 26px;
+  border-radius: 16px;
+  margin: 0 auto 12px;
+}
+.auth-brand-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.auth-brand-sub {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+
+/* ==================== 12. 结果页/规划页辅助 ==================== */
+/* 页面标题条 */
+.page-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* 状态徽标胶囊 */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 聊天抽屉里的滚动条弱化 */
+.chat-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+/* ==================== 13. 响应式适配 ==================== */
+@media (max-width: 1080px) {
+  .tpl-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bento-span-2 {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-navbar {
+    padding: 0 14px;
+    gap: 8px;
+  }
+  .app-logo-name {
+    display: none;
+  }
+  .app-user-chip > span {
+    display: none;
+  }
+  .app-nav-link {
+    padding: 5px 12px;
+    font-size: 13px;
+  }
+  .app-content {
+    padding: 16px 12px 40px;
+  }
+  /* Hero */
+  .hero-media {
+    min-height: 360px;
+  }
+  .hero-media-content {
+    padding: 30px 22px;
+  }
+  .hero-title {
+    font-size: 28px;
+  }
+  .hero-subtitle br {
+    display: none;
+  }
+  .hero-stat {
+    padding: 8px 12px;
+  }
+  /* 模板卡单列 */
+  .tpl-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  /* Bento 单列 */
+  .bento-grid {
+    grid-template-columns: 1fr;
+  }
+  .bento-span-2 {
+    grid-column: span 1;
+  }
+  /* 表单 */
+  .plan-card .ant-card-head {
+    padding: 16px 18px;
+  }
+  .plan-card .ant-card-body {
+    padding: 18px 16px 20px;
+  }
+  .plan-submit-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .auth-card {
+    width: 100%;
+  }
+}

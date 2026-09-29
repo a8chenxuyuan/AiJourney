@@ -1,0 +1,13 @@
+# backend/.dockerignore
+# 构建上下文排除项：减小体积并避免敏感信息进入镜像层
+
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.db
+logs/
+logs/*.log
+.env
+.pytest_cache/
+tests/

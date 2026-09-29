@@ -1,0 +1,110 @@
+# docker-compose.yml
+# agent1旅行 一键部署编排：Qdrant(向量库) + Redis(任务队列) + backend(API) + worker(ARQ) + frontend(Nginx)
+#
+# 使用方式（在项目根目录）：
+#   一键启动:   docker compose up -d --build
+#   查看状态:   docker compose ps
+#   查看日志:   docker compose logs -f backend worker
+#   停止:       docker compose down          # 加 -v 会连数据卷一起删除（Qdrant 数据会丢）
+#
+# 说明：
+# - backend 与 worker 共用 backend/Dockerfile 镜像，仅启动命令不同；
+# - 容器内基础设施地址通过 environment 覆盖 .env（pydantic-settings 中环境变量优先）；
+# - 敏感配置（LLM Key 等）经 env_file: backend/.env 注入容器，不写入镜像；
+# - Windows/WSL2 环境下 Embedding 模型缓存直接挂载宿主机 HuggingFace 缓存目录，
+#   可用环境变量 HF_CACHE_DIR 覆盖：HF_CACHE_DIR=/path/to/huggingface docker compose up -d
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.14.1
+    container_name: agent1-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST API（宿主机可直连，本地后端也可复用该实例）
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: agent1-redis
+    restart: unless-stopped
+    # 不映射宿主机端口：宿主机 6379 已被本地 Redis 占用，容器内服务走内部网络
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: agent1-backend
+    restart: unless-stopped
+    command: ["python", "run.py"]
+    env_file:
+      - backend/.env
+    environment:
+      # 覆盖 .env：容器之间走 compose 内部网络；SQLite 落到持久化卷
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://redis:6379/1
+      DATABASE_URL: sqlite+aiosqlite:///./data/agent1travel.db
+      ENVIRONMENT: production
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_data:/app/data
+      # Embedding 模型缓存（只读挂载，避免镜像内置 93MB 模型；默认指向 WSL 侧宿主机缓存）
+      - ${HF_CACHE_DIR:-/mnt/c/Users/Administrator/.cache/huggingface}:/root/.cache/huggingface:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    container_name: agent1-worker
+    restart: unless-stopped
+    # 兜底自愈循环在 worker.py 内部实现，容器级再叠加 restart 策略双保险
+    command: ["python", "worker.py"]
+    env_file:
+      - backend/.env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://redis:6379/1
+      DATABASE_URL: sqlite+aiosqlite:///./data/agent1travel.db
+      ENVIRONMENT: production
+      DEBUG: "false"
+    volumes:
+      - backend_data:/app/data
+      - ${HF_CACHE_DIR:-/mnt/c/Users/Administrator/.cache/huggingface}:/root/.cache/huggingface:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    container_name: agent1-frontend
+    restart: unless-stopped
+    ports:
+      - "8081:80"   # 宿主机 8080 常被其他项目（如 zammad-nginx）占用，前端入口改用 8081
+    depends_on:
+      - backend
+
+volumes:
+  qdrant_data:    # 向量库持久化：攻略文档重建容器后不丢
+  redis_data:     # 队列持久化（AOF）：待处理任务重启不丢
+  backend_data:   # SQLite 数据库持久化
