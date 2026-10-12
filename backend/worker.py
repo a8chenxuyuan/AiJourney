@@ -24,6 +24,7 @@ from app.db.init_db import init_db
 from app.tasks import (
     run_crawler_task,
     run_planning_task,
+    run_recalculate_task,
     run_revision_task,
     run_weather_check_task,
 )
@@ -75,7 +76,7 @@ class WorkerSettings:
       arq 默认 3600 秒才写一次，观测性差，这里改为 30 秒。
     """
 
-    functions = [run_planning_task, run_revision_task, run_crawler_task, run_weather_check_task]
+    functions = [run_planning_task, run_revision_task, run_recalculate_task, run_crawler_task, run_weather_check_task]
     cron_jobs = [cron(run_weather_check_task, hour=8, minute=0)]
     redis_settings = _redis_settings
     max_jobs = 4

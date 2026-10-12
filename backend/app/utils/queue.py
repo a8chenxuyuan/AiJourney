@@ -149,6 +149,41 @@ async def enqueue_revision_task(
     logger.info(f"[Queue] 修订任务已入队 plan_id={plan_id} source={source}")
 
 
+async def enqueue_recalculate_task(
+    plan_id: str,
+    request: dict,
+    user_id: int,
+    parent_revision_id: int,
+    previous_plan: dict,
+    revision_notes: str,
+    day_attractions: list,
+) -> None:
+    """
+    投递行程重算任务到队列（用户手动调整某天景点顺序后触发）。
+
+    Args:
+        plan_id: 行程计划 ID。
+        request: TripRequest.model_dump(mode="json") 的字典。
+        user_id: 用户 ID。
+        parent_revision_id: 父版本 ID。
+        previous_plan: TripPlan.model_dump(mode="json") 的字典（目标天顺序已重排）。
+        revision_notes: 重算说明文本（含用户指定的新顺序）。
+        day_attractions: 目标天重排后的景点列表（dict，仅对这些景点算路线矩阵）。
+    """
+    pool = await _get_pool()
+    await pool.enqueue_job(
+        "run_recalculate_task",
+        plan_id,
+        request,
+        user_id,
+        parent_revision_id,
+        previous_plan,
+        revision_notes,
+        day_attractions,
+    )
+    logger.info(f"[Queue] 重算任务已入队 plan_id={plan_id}")
+
+
 async def enqueue_crawler_task(cities: Optional[List[str]], max_pages: Optional[int]) -> str:
     """
     投递爬虫任务到队列，返回任务 ID 供状态查询。

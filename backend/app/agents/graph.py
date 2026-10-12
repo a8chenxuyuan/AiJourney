@@ -69,7 +69,7 @@ from app.agents.streaming import (
 from app.agents.tools import haversine_distance, plan_route
 from app.db.session import AsyncSessionLocal
 from app.models.db_models import TripPlanDB
-from app.models.schemas import AgentLog, TripPlan, TripRequest
+from app.models.schemas import AgentLog, Attraction, TripPlan, TripRequest
 
 
 # 节点函数类型：接收状态，返回状态更新字典
@@ -951,6 +951,136 @@ async def run_revision_graph(
         # 但实际上 Agent 可能仍在重试（网络抖动、LLM 慢响应等）
         # 改为：只更新数据库 status，让前端通过 GET /api/trip/{id} 轮询获取真实状态
 
+        async with AsyncSessionLocal() as session:
+            db_plan = await session.get(TripPlanDB, plan_id)
+            if db_plan:
+                db_plan.status = "failed"
+                db_plan.plan_data = {"error": str(exc)}
+                await session.commit()
+
+        return None
+
+
+async def run_recalculate_graph(
+    plan_id: str,
+    request: TripRequest,
+    user_id: int,
+    parent_revision_id: int,
+    previous_plan: TripPlan,
+    revision_notes: str,
+    day_attractions: List[Any]
+) -> Optional[TripPlan]:
+    """
+    【函数作用】用户手动调整某天景点顺序后的"轻量重算"工作流。
+
+    与完整修订（run_revision_graph）的区别：不重新收集信息（不做意图分析、
+    不重新搜景点/天气/酒店/餐厅），所有输入都来自当前生效版本，只重跑
+    RouteAgent（重算当天景点路线矩阵）+ PlannerAgent（按用户指定顺序重排当天、
+    重排交通/餐饮衔接），是成本最低的 Agent 重执行路径。
+
+    【参数】
+    - plan_id：根行程计划 ID
+    - request：原始旅行请求
+    - user_id：当前用户 ID
+    - parent_revision_id：基于哪个版本重算
+    - previous_plan：当前生效版本的行程（其中目标天的景点顺序已由 API 层按用户要求重排）
+    - revision_notes：重算说明文本（含用户指定的新顺序）
+    - day_attractions：目标天重排后的景点列表（仅对这些景点算路线矩阵，避免全量 N² 调用）
+
+    【返回值】
+    - Optional[TripPlan]：重算后的新版本行程计划；失败返回 None
+    """
+    # ==================== 步骤 1：从上一版本构造状态 ====================
+    # 信息收集类字段全部复用上一版本产物，RouteAgent / PlannerAgent 是仅有的重执行节点
+    prev_attractions = [
+        a for day in previous_plan.day_plans for a in day.attractions
+    ]
+    # 跨进程入队后 day_attractions 是 dict 列表，需还原为 Attraction 对象供节点使用
+    day_attractions = [
+        Attraction(**a) if isinstance(a, dict) else a for a in (day_attractions or [])
+    ]
+    # 酒店按名称去重（多天可能住同一家）
+    hotels_by_name: Dict[str, Any] = {}
+    for day in previous_plan.day_plans:
+        if day.hotel and day.hotel.name not in hotels_by_name:
+            hotels_by_name[day.hotel.name] = day.hotel
+    # 餐厅从每日三餐中去重
+    restaurants_by_name: Dict[str, Any] = {}
+    for day in previous_plan.day_plans:
+        for meal in day.meals:
+            if meal.name not in restaurants_by_name:
+                restaurants_by_name[meal.name] = meal
+
+    state: TravelPlanningState = {
+        "plan_id": plan_id,
+        "user_id": user_id,
+        "request": request,
+        "intent_analysis": None,          # 无意图分析，planner 回退 style="standard"
+        "attractions": prev_attractions,  # 完整景点池，供 planner 复现其余天数
+        "hotels": list(hotels_by_name.values()),
+        "restaurants": list(restaurants_by_name.values()),
+        "weather": previous_plan.weather or [],
+        "route_matrix": {},
+        "rag_context": "",
+        # 多城联游不支持手动重算（API 层已拦截），这里保持单城路径
+        "cities": [],
+        "city_days": {},
+        "attractions_by_city": {},
+        "hotels_by_city": {},
+        "restaurants_by_city": {},
+        "weather_by_city": {},
+        "rag_by_city": {},
+        "route_matrix_by_city": {},
+        "intercity_legs": [],
+        "candidate_plans": [],
+        "selected_plan_index": 0,
+        "final_plan": None,
+        "messages": [],
+        "current_step": "start",
+        "logs": [],
+        "error": None,
+        "human_decisions": {},
+        "previous_plan": previous_plan,
+        "revision_notes": revision_notes,
+        "structured_feedback": None,      # 无结构化反馈，跳过记忆固化
+        "revision_type": "recalculate",   # finalize 据此把版本来源记为 recalculate
+        "parent_revision_id": parent_revision_id,
+        "feedback_day_index": None,
+        "feedback_tags": []
+    }
+
+    try:
+        # ==================== 步骤 2：批次编排 ====================
+        # RouteAgent 只对目标天的景点算路线矩阵（scoped state，与多城 route_multi 同模式），
+        # 避免 N² 全量路线调用；PlannerAgent 拿完整景点池 + 修订上下文重排行程。
+        # BudgetAgent / human_in_the_loop / finalize 与初始规划一致（finalize 落新版本）。
+        scoped_route_state = dict(state)
+        if day_attractions:
+            scoped_route_state["attractions"] = day_attractions
+        route_update = await _run_node(plan_id, scoped_route_state, "route_agent", route_agent_node)
+        await _merge_update(state, route_update)
+
+        node_batches: List[List[Tuple[str, NodeFunc]]] = [
+            [("planner_agent", planner_agent_node)],
+            [("budget_agent", budget_agent_node)],
+            [("human_in_the_loop", human_in_the_loop_node)],
+            [("finalize", finalize_node)],
+        ]
+        await _run_batches(plan_id, state, node_batches)
+
+        await mark_done(plan_id, "completed")
+        # 与 run_revision_graph 一致：把 DB 状态改回 completed，前端轮询才能看到完成
+        async with AsyncSessionLocal() as session:
+            db_plan = await session.get(TripPlanDB, plan_id)
+            if db_plan:
+                db_plan.status = "completed"
+                await session.commit()
+        return state.get("final_plan")
+
+    except Exception as exc:
+        logger.exception(f"[Manual Recalculate Graph] 重算失败: {exc}")
+
+        # 与 run_revision_graph 相同：不推 SSE 失败标记，只更新 DB 状态供前端轮询
         async with AsyncSessionLocal() as session:
             db_plan = await session.get(TripPlanDB, plan_id)
             if db_plan:

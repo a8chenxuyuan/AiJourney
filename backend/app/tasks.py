@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 from sqlalchemy import select
 
-from app.agents.graph import run_planning_graph, run_revision_graph
+from app.agents.graph import run_planning_graph, run_recalculate_graph, run_revision_graph
 from app.agents.tools import get_weather
 from app.db.session import AsyncSessionLocal
 from app.models.db_models import PlanNotification, TripPlanDB
@@ -174,6 +174,72 @@ async def run_revision_task(
                     await session.commit()
         finally:
             # 无论成功失败都要清理 running 标记，锁会随 async with 自动释放
+            _revision_running.pop(plan_id, None)
+
+
+async def run_recalculate_task(
+    ctx: dict,
+    plan_id: str,
+    request: dict,
+    user_id: int,
+    parent_revision_id: int,
+    previous_plan: dict,
+    revision_notes: str,
+    day_attractions: list
+) -> None:
+    """
+    行程重算任务：执行 RouteAgent + PlannerAgent 轻量重算链路并落新版本。
+
+    与 run_revision_task 共用 per-plan_id 互斥锁：重算与修订不允许并行，
+    避免两个任务同时写新版本互相覆盖。
+
+    Args:
+        ctx: arq Worker 上下文（未使用，保持签名兼容）。
+        plan_id: 行程计划 ID。
+        request: TripRequest.model_dump(mode="json") 的字典。
+        user_id: 用户 ID。
+        parent_revision_id: 父版本 ID。
+        previous_plan: TripPlan.model_dump(mode="json") 的字典（目标天顺序已重排）。
+        revision_notes: 重算说明文本（含用户指定的新顺序）。
+        day_attractions: 目标天重排后的景点列表（dict）。
+    """
+    trip_request = TripRequest(**request)
+    prev_plan = TripPlan(**previous_plan)
+
+    lock = _get_revision_lock(plan_id)
+
+    # 已有 revision/recalculate 任务在跑则直接放弃
+    if lock.locked():
+        logger.warning(f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑（来源={_revision_running.get(plan_id)}），"
+                       f"重算任务直接放弃")
+        return
+
+    async with lock:
+        _revision_running[plan_id] = "recalculate"
+        # 进入锁之后立刻把 plan 标记为 revising，前端轮询能看到等待状态
+        async with AsyncSessionLocal() as session:
+            db_plan = await session.get(TripPlanDB, plan_id)
+            if db_plan:
+                db_plan.status = "revising"
+                await session.commit()
+        try:
+            await run_recalculate_graph(
+                plan_id=plan_id,
+                request=trip_request,
+                user_id=user_id,
+                parent_revision_id=parent_revision_id,
+                previous_plan=prev_plan,
+                revision_notes=revision_notes,
+                day_attractions=day_attractions
+            )
+        except Exception as exc:
+            logger.exception(f"[Background Recalculate Task] 重算任务 {plan_id} 执行失败: {exc}")
+            async with AsyncSessionLocal() as session:
+                db_plan = await session.get(TripPlanDB, plan_id)
+                if db_plan:
+                    db_plan.status = "failed"
+                    await session.commit()
+        finally:
             _revision_running.pop(plan_id, None)
 
 
