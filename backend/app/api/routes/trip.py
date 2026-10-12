@@ -610,7 +610,8 @@ async def get_recommendations(
     打分取 Top 5，并对前 3 项用 RAG 检索补充该城必去景点标题（失败则省略 spots）。
 
     Returns:
-        StandardResponse: data = {"items": [{city, reason, source, spots?}]}；空结果也是 success=True。
+        StandardResponse: data = {"items": [{city, reason, source, spots?}]}；
+        空结果也是 success=True。
     """
     # ==================== 步骤 1：收集各来源城市 ====================
     fav_result = await session.execute(
@@ -697,7 +698,9 @@ async def get_plan(
 
     # 调试日志：记录每次 fetchPlan 的响应版本
     logger.debug(
-        f"[GET /api/trip/{plan.id}] returning version={current_revision.version if current_revision else None}, diff_total={(diff_summary or {}).get('total_changes') if diff_summary else 0}"
+        f"[GET /api/trip/{plan.id}] "
+        f"returning version={current_revision.version if current_revision else None}, "
+        f"diff_total={(diff_summary or {}).get('total_changes') if diff_summary else 0}"
     )
 
     return StandardResponse(
@@ -827,7 +830,10 @@ async def recalculate_plan(
     if target_day is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"第 {recalc_request.day_index} 天不存在（行程共 {len(previous_plan.day_plans)} 天）",
+            detail=(
+                f"第 {recalc_request.day_index} 天不存在"
+                f"（行程共 {len(previous_plan.day_plans)} 天）"
+            ),
         )
     if not target_day.attractions:
         raise HTTPException(
@@ -1356,14 +1362,19 @@ async def list_my_plans(
 
 # 对话意图提取的系统提示词：让 LLM 输出严格 JSON，
 # intent=feedback（修改意见）时附带 day_index/tags；intent=question（咨询）时 reply 直接回答。
-CHAT_SYSTEM_PROMPT = """你是一个旅行行程助手的意图分析模块。用户会针对已有的旅行行程输入一句话，你需要：
+CHAT_SYSTEM_PROMPT = """你是一个旅行行程助手的意图分析模块。
+用户会针对已有的旅行行程输入一句话，你需要：
 1. 判断意图：
-   - "feedback"：用户提出了对行程的修改意见（如换景点/换餐厅/换酒店/行程太满/太赶/想加某地/想删某地/嫌贵等）；
+   - "feedback"：用户提出了对行程的修改意见
+     （如换景点/换餐厅/换酒店/行程太满/太赶/想加某地/想删某地/嫌贵等）；
    - "question"：用户在咨询行程相关信息（如天气、路线、建议、某个景点介绍等），不构成修改意见。
 2. 若是 feedback，提取：
    - day_index：针对第几天（整数）；无法确定则为 null（表示整体意见）；
-   - tags：从这些标签中选择最匹配的若干个：["餐饮不满意","景点不喜欢","行程太满","想加某地","想删某地","换酒店","其他"]；
-3. reply：用中文给用户一句自然、友好的回复（feedback 时要复述你理解到的意见以便用户确认；question 时直接基于行程上下文回答，回答要具体、简洁，不超过 120 字）。
+   - tags：从这些标签中选择最匹配的若干个：
+     ["餐饮不满意","景点不喜欢","行程太满","想加某地","想删某地","换酒店","其他"]；
+3. reply：用中文给用户一句自然、友好的回复
+   （feedback 时要复述你理解到的意见以便用户确认；question 时直接基于行程上下文回答，
+   回答要具体、简洁，不超过 120 字）。
 4. 参考最近的对话历史理解指代（如"第二天也这样"）。
 
 只输出如下 JSON，不要输出其他任何内容：
@@ -1455,7 +1466,8 @@ async def _load_chat_context(
         chat: 对话请求。
 
     Returns:
-        dict: {"plan_data": 行程 JSON, "feedback_context": 已提交意见文本, "history_context": 对话历史文本}。
+        dict: {"plan_data": 行程 JSON, "feedback_context": 已提交意见文本,
+        "history_context": 对话历史文本}。
     """
     memory_service = MemoryService()
     # 行程摘要 + 当前生效版本
@@ -1550,13 +1562,19 @@ async def _extract_chat_intent(
             "intent": "feedback",
             "day_index": None,
             "tags": ["其他"],
-            "reply": "已记录你的意见（本次未识别到具体天数，将作为整体调整参与下次重新生成）。你可以继续补充，或点下方按钮重新生成行程。",
+            "reply": (
+                "已记录你的意见（本次未识别到具体天数，将作为整体调整参与下次重新生成）。"
+                "你可以继续补充，或点下方按钮重新生成行程。"
+            ),
         }
     return {
         "intent": "question",
         "day_index": None,
         "tags": [],
-        "reply": "抱歉，我暂时没能理解这条消息。你可以试着描述想怎么修改行程，例如：'第二天太赶了，去掉一个景点'。",
+        "reply": (
+            "抱歉，我暂时没能理解这条消息。"
+            "你可以试着描述想怎么修改行程，例如：'第二天太赶了，去掉一个景点'。"
+        ),
     }
 
 

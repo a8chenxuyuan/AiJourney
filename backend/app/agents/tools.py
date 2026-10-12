@@ -353,7 +353,8 @@ def _enrich_attraction(poi: dict[str, Any]) -> dict[str, Any]:
         **poi,
         "tags": tags,
         "duration": duration,
-        "description": f"{name} 是 {poi.get('type', '当地')} 的热门地点，地址：{poi.get('address') or '详见地图'}。",
+        "description": f"{name} 是 {poi.get('type', '当地')} 的热门地点，"
+                       f"地址：{poi.get('address') or '详见地图'}。",
         "detail_url": detail_url,
         "phone": poi.get("tel"),
         "business_hours": poi.get("business_hours"),
@@ -401,7 +402,8 @@ def _enrich_hotel(poi: dict[str, Any]) -> dict[str, Any]:
     return {
         **poi,
         "price_per_night": price_per_night,
-        "description": f"{name} 是 {poi.get('type', '当地')} 的住宿选择，地址：{poi.get('address') or '详见地图'}。",
+        "description": f"{name} 是 {poi.get('type', '当地')} 的住宿选择，"
+                       f"地址：{poi.get('address') or '详见地图'}。",
         "detail_url": detail_url,
         "phone": poi.get("tel"),
         "business_hours": poi.get("business_hours"),

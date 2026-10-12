@@ -117,8 +117,8 @@ async def run_revision_task(
     # 已有 revision 任务在跑则直接放弃
     if lock.locked():
         logger.warning(
-            f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑（来源={_revision_running.get(plan_id)}），"
-            f"新任务来源={source} 直接放弃"
+            f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑"
+            f"（来源={_revision_running.get(plan_id)}），新任务来源={source} 直接放弃"
         )
         # 不修改 plan.status / 不创建新 revision，避免把正在跑的任务结果覆盖
         return
@@ -210,8 +210,8 @@ async def run_recalculate_task(
     # 已有 revision/recalculate 任务在跑则直接放弃
     if lock.locked():
         logger.warning(
-            f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑（来源={_revision_running.get(plan_id)}），"
-            f"重算任务直接放弃"
+            f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑"
+            f"（来源={_revision_running.get(plan_id)}），重算任务直接放弃"
         )
         return
 
@@ -317,7 +317,8 @@ def _format_rainy_revision_note(rainy_dates: list[str], start_date: str) -> str:
         start_date: 行程开始日期，用于换算第几天。
 
     Returns:
-        str: 如"第2天(2026-10-02)预报有雨，请将当天户外景点替换为博物馆/美术馆等室内景点，并适当调整顺序"。
+        str: 如"第2天(2026-10-02)预报有雨，请将当天户外景点替换为博物馆/美术馆等室内景点，
+            并适当调整顺序"。
     """
     start = datetime.strptime(start_date, "%Y-%m-%d")
     parts = []

@@ -362,7 +362,10 @@ async def split_cities_node(state: TravelPlanningState) -> dict[str, Any]:
     log = AgentLog(
         step="split_cities",
         agent_name="MultiCityRouter",
-        input_preview=f"city={state['request'].city}, cities={getattr(state['request'], 'cities', None)}",
+        input_preview=(
+            f"city={state['request'].city}, "
+            f"cities={getattr(state['request'], 'cities', None)}"
+        ),
         output_preview=f"cities={cities}, city_days={city_days}",
     )
     return {"cities": cities, "city_days": city_days, "logs": [log], "current_step": "split_cities"}
@@ -893,7 +896,8 @@ async def run_revision_graph(
             # planner 会读到 previous_plan + revision_notes
             if len(getattr(request, "cities", None) or []) >= 2:
                 # 多城联游行程的完整重排：沿用初始规划的多城批次
-                # （split_cities 解析城市序列 → city_gather 按城 fan-out 收集 → route_multi 算城际交通），
+                # （split_cities 解析城市序列 → city_gather 按城 fan-out 收集
+                # → route_multi 算城际交通），
                 # 保证重排后 day.city / intercity_note 不丢失；
                 # planner 的多城分支同样会追加修订上下文（previous_plan + revision_notes）
                 node_batches = [

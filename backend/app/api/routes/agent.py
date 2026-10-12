@@ -170,7 +170,10 @@ async def stream_agent_events(plan: TripPlanDB = Depends(_get_owned_plan_for_sse
                 log = row.log_json or {}
                 # 收到结束标记：发送最终状态并结束推送
                 if log.get("done"):
-                    yield f"data: {json.dumps({'status': log.get('status', 'completed')}, ensure_ascii=False)}\n\n"
+                    payload = json.dumps(
+                        {"status": log.get("status", "completed")}, ensure_ascii=False
+                    )
+                    yield f"data: {payload}\n\n"
                     return
                 last_log_id = row.id
                 data = json.dumps(log, ensure_ascii=False)
@@ -184,13 +187,18 @@ async def stream_agent_events(plan: TripPlanDB = Depends(_get_owned_plan_for_sse
                 async with AsyncSessionLocal() as session:
                     fresh_plan = await session.get(TripPlanDB, plan.id)
                 if fresh_plan and fresh_plan.status in ("completed", "failed"):
-                    yield f"data: {json.dumps({'status': fresh_plan.status}, ensure_ascii=False)}\n\n"
+                    payload = json.dumps({"status": fresh_plan.status}, ensure_ascii=False)
+                    yield f"data: {payload}\n\n"
                     return
                 last_status_check = now
 
             # 超过 30 秒没有新日志时发送一次心跳，保持 SSE 连接
             if now - last_event_at >= 30.0:
-                yield f"data: {json.dumps({'status': 'waiting', 'agent_name': 'System', 'step': 'heartbeat'}, ensure_ascii=False)}\n\n"
+                payload = json.dumps(
+                    {"status": "waiting", "agent_name": "System", "step": "heartbeat"},
+                    ensure_ascii=False,
+                )
+                yield f"data: {payload}\n\n"
                 last_event_at = now
 
             await asyncio.sleep(1.0)

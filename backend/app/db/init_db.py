@@ -25,11 +25,14 @@ from app.db.session import engine
 # 说明：plan_collaborators / plan_invites 两张新表（多人协作）与 plan_notifications 一样，
 # 由上方 Base.metadata.create_all 直接建表（含索引与唯一约束），无需在此登记。
 _IDEMPOTENT_INDEXES = [
-    "CREATE INDEX IF NOT EXISTS ix_plan_revisions_parent_revision_id ON plan_revisions (parent_revision_id)",
+    "CREATE INDEX IF NOT EXISTS ix_plan_revisions_parent_revision_id "
+    "ON plan_revisions (parent_revision_id)",
     "CREATE INDEX IF NOT EXISTS ix_plan_feedback_revision_id ON plan_feedback (revision_id)",
     "CREATE INDEX IF NOT EXISTS ix_plan_feedback_user_id ON plan_feedback (user_id)",
-    "CREATE INDEX IF NOT EXISTS ix_plan_feedback_accepted_revision_id ON plan_feedback (accepted_revision_id)",
-    "CREATE INDEX IF NOT EXISTS ix_plan_feedback_edited_by_feedback_id ON plan_feedback (edited_by_feedback_id)",
+    "CREATE INDEX IF NOT EXISTS ix_plan_feedback_accepted_revision_id "
+    "ON plan_feedback (accepted_revision_id)",
+    "CREATE INDEX IF NOT EXISTS ix_plan_feedback_edited_by_feedback_id "
+    "ON plan_feedback (edited_by_feedback_id)",
     "CREATE INDEX IF NOT EXISTS ix_trip_plans_user_id ON trip_plans (user_id)",
     "CREATE INDEX IF NOT EXISTS ix_orders_user_id ON orders (user_id)",
     "CREATE INDEX IF NOT EXISTS ix_orders_plan_id ON orders (plan_id)",

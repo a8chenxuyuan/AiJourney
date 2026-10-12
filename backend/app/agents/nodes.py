@@ -790,7 +790,8 @@ async def attraction_agent_node(state: TravelPlanningState) -> dict[str, Any]:
                     if bg.get("content") and len(bg["content"]) > len(attraction.description or ""):
                         attraction.description = bg["content"]
                         logger.debug(
-                            f"[Node] attraction_agent_node 为 {attraction.name} 补充背景知识，来源缓存={bg.get('from_cache')}"
+                            f"[Node] attraction_agent_node 为 {attraction.name} 补充背景知识，"
+                            f"来源缓存={bg.get('from_cache')}"
                         )
                     # 如果有百科链接，也补充上
                     if bg.get("url") and not attraction.detail_url:
@@ -1637,7 +1638,8 @@ def _enforce_multi_city_must_visit(
         target_day = min(target_candidates or plan.day_plans, key=lambda d: len(d.attractions))
         target_day.attractions.append(matched)
         logger.info(
-            f"[Node] 多城 planner 将必去景点 {mv_name} 插入第 {target_day.day_index} 天（{target_day.city}）"
+            f"[Node] 多城 planner 将必去景点 {mv_name} "
+            f"插入第 {target_day.day_index} 天（{target_day.city}）"
         )
 
     tool_calls.append({"tool": "must_visit_enforce", "inserted": missing})
@@ -1724,7 +1726,8 @@ def _build_revision_context_block(previous_plan: Any, revision_notes: str) -> st
         hotel_name = d.hotel.name if d.hotel else "无"
         city_label = f"{d.city}, " if getattr(d, "city", None) else ""
         prev_lines.append(
-            f"第{d.day_index}天({d.date} {city_label}景点[{attr_names}] | 餐饮[{meal_names}] | 酒店[{hotel_name}]"
+            f"第{d.day_index}天({d.date} {city_label}景点[{attr_names}]"
+            f" | 餐饮[{meal_names}] | 酒店[{hotel_name}]"
         )
     prev_summary = "\n".join(prev_lines)
     return f"""
@@ -2092,7 +2095,8 @@ async def planner_agent_node(state: TravelPlanningState) -> dict[str, Any]:
                 target_day = min(plan.day_plans, key=lambda d: len(d.attractions))
                 target_day.attractions.append(matched_attraction)
                 logger.info(
-                    f"[Node] planner_agent_node 将必去景点 {mv_name} 插入到第 {target_day.day_index} 天"
+                    f"[Node] planner_agent_node 将必去景点 {mv_name} "
+                    f"插入到第 {target_day.day_index} 天"
                 )
 
             tool_calls.append({"tool": "must_visit_enforce", "inserted": missing_must_visit})
@@ -2293,8 +2297,10 @@ async def finalize_node(state: TravelPlanningState) -> dict[str, Any]:
 
     logger.info(f"[Node] finalize_node final_plan 检查: final_plan={final_plan is not None}")
     if final_plan:
+        day1_count = len(final_plan.day_plans[0].attractions) if final_plan.day_plans else 0
         logger.debug(
-            f"[Node] finalize_node final_plan 详情: city={final_plan.city}, days={len(final_plan.day_plans)}, day1_attractions={len(final_plan.day_plans[0].attractions) if final_plan.day_plans else 0}"
+            f"[Node] finalize_node final_plan 详情: city={final_plan.city}, "
+            f"days={len(final_plan.day_plans)}, day1_attractions={day1_count}"
         )
 
     # 初始化工具调用记录列表
@@ -2550,7 +2556,10 @@ def _build_fallback_plan(state: TravelPlanningState) -> TripPlan:
             day_plan = DayPlan(
                 day_index=day_index,  # 天数索引
                 date=date_str,  # 日期
-                description="未能从地图服务获取到该城市的景点数据，请检查城市名称或 API Key 配置。",  # 描述
+                description=(
+                    "未能从地图服务获取到该城市的景点数据，"
+                    "请检查城市名称或 API Key 配置。"
+                ),  # 描述
                 attractions=[],  # 景点列表（空）
                 meals=[  # 餐饮安排
                     Meal(

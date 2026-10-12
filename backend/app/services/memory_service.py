@@ -433,7 +433,10 @@ class MemoryService:
         """
         把 UserMemory 文本写入 Qdrant 向量库，供后续相似场景检索。
         """
-        text = f"{memory.memory_type}: {memory.entity_name or ''}. {memory.reason or ''}. {memory.context or ''}"
+        text = (
+            f"{memory.memory_type}: {memory.entity_name or ''}. "
+            f"{memory.reason or ''}. {memory.context or ''}"
+        )
         embedding = (await asyncio.to_thread(self.rag.embed_texts, [text]))[0]
         point_id = str(uuid.uuid4())
 

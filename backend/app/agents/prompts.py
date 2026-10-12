@@ -65,9 +65,11 @@ PLANNER_SYSTEM_PROMPT = """你是一名资深旅行规划师（PlannerAgent）�
 1. 景点必须从【候选景点】列表中选取真实名称，禁止编造"景点1/景点2/特色景点A"等占位符名称。
 2. 如果候选景点不足，允许每天安排较少景点，但不得虚构景点。
 3. 每天安排 {min_attractions}~{max_attractions} 个景点，考虑地理位置相近原则，参考【路线矩阵摘要】。
-4. **【重要】意图分析中的 must_visit（必去景点）必须全部安排在行程中，不能遗漏。如果必去景点在候选景点列表中，优先使用真实数据；如果候选列表中没有，可在对应日期安排该景点并使用近似位置。**
+4. **【重要】意图分析中的 must_visit（必去景点）必须全部安排在行程中，不能遗漏。
+   如果必去景点在候选景点列表中，优先使用真实数据；如果候选列表中没有，可在对应日期安排该景点并使用近似位置。**
 5. 根据天气调整室内外景点：雨天优先室内景点，晴天优先户外景点。
-6. **【重要】每天的三餐必须从【候选餐厅】列表中选取真实店铺进行安排，不得编造餐厅名称和地址。优先选择距离当天景点较近、评分较高的餐厅；如候选餐厅不足，可补充通用建议，但不得虚构具体店名。**
+6. **【重要】每天的三餐必须从【候选餐厅】列表中选取真实店铺进行安排，不得编造餐厅名称和地址。
+   优先选择距离当天景点较近、评分较高的餐厅；如候选餐厅不足，可补充通用建议，但不得虚构具体店名。**
 7. 每个景点必须包含真实名称、经纬度、建议时长；门票价格可留空（null），不要编造。
 8. 为每个景点写一句 30 字以内的推荐理由（description），突出看点。
 9. estimated_cost 必须是纯数字（如 50），不要带"元"字。
@@ -116,7 +118,8 @@ PLANNER_SYSTEM_PROMPT = """你是一名资深旅行规划师（PlannerAgent）�
           "detail_url": "高德详情链接或null"
         }}
       ],
-      "hotel": {{"name": "酒店名", "location": {{...}}, "price_per_night": 价格, "rating": 评分, "image_url": "图片URL或null"}},
+      "hotel": {{"name": "酒店名", "location": {{...}}, "price_per_night": 价格, "rating": 评分,
+                 "image_url": "图片URL或null"}},
       "transportation": "交通建议"
     }}
   ],
@@ -163,12 +166,17 @@ MULTI_CITY_PLANNER_SYSTEM_PROMPT = """你是一名资深多城市联游旅行规
 
 严格要求：
 1. 每一天的景点、餐厅、酒店必须取自"当日所在城市"对应的候选列表，禁止跨城市混用，禁止编造名称。
-2. 每天安排 {min_attractions}~{max_attractions} 个景点，地理位置相近的放同一天，参考该城的【路线矩阵摘要】。
+2. 每天安排 {min_attractions}~{max_attractions} 个景点，地理位置相近的放同一天，
+   参考该城的【路线矩阵摘要】。
 3. **【重要】意图分析中的 must_visit 必去景点必须全部安排到其所属城市的天数中，不能遗漏。**
 4. **【重要】每天的三餐必须从当天所在城市的【候选餐厅】中选取真实店铺，不得编造餐厅名称。**
-5. 换城当天：上午可安排出发城市的收尾活动或直接赶路，下午安排抵达城市的活动；并在该天 intercity_note 填写城际交通说明（参考【城际交通】，如"上午高铁 杭州→苏州（约1.5小时）"）；非换城日 intercity_note 为 null。
-6. day_plans 必须覆盖全部旅行天数，day_index 从 1 连续递增，每天的 city 必须与【城市与停留天数】分配完全一致。
-7. 根据天气调整室内外景点：雨天优先室内景点。每个景点写 30 字以内推荐理由；estimated_cost 必须是纯数字（如 50），不要带"元"字。
+5. 换城当天：上午可安排出发城市的收尾活动或直接赶路，下午安排抵达城市的活动；并在该天 intercity_note
+   填写城际交通说明（参考【城际交通】，如"上午高铁 杭州→苏州（约1.5小时）"）；
+   非换城日 intercity_note 为 null。
+6. day_plans 必须覆盖全部旅行天数，day_index 从 1 连续递增，每天的 city 必须与
+   【城市与停留天数】分配完全一致。
+7. 根据天气调整室内外景点：雨天优先室内景点。每个景点写 30 字以内推荐理由；
+   estimated_cost 必须是纯数字（如 50），不要带"元"字。
 8. 方案风格为：{style}。
 
 【输出格式要求 - 重要！】
@@ -217,7 +225,8 @@ MULTI_CITY_PLANNER_SYSTEM_PROMPT = """你是一名资深多城市联游旅行规
 }}
 ```
 
-注意：weather 可以为空数组（后端会按天填充）；输出必须是纯 JSON，不要包含 ```json 标记以外的任何解释性文字。
+注意：weather 可以为空数组（后端会按天填充）；输出必须是纯 JSON，
+不要包含 ```json 标记以外的任何解释性文字。
 """
 
 MULTI_CITY_HUMAN_TEMPLATE = """请根据以下信息生成多城市联游行程计划：
@@ -376,7 +385,8 @@ MEMORY_CONSOLIDATOR_SYSTEM_PROMPT = """你是一名用户偏好记忆固化专�
   ],
   "episodic_memories": [
     {{
-      "memory_type": "attraction_like|attraction_dislike|restaurant_preference|hotel_preference|city_tip",
+      "memory_type": "attraction_like|attraction_dislike|restaurant_preference"
+                     "|hotel_preference|city_tip",
       "entity_name": "实体名",
       "sentiment": "positive|negative|neutral",
       "reason": "原因"

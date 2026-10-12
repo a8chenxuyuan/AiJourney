@@ -127,7 +127,8 @@ class TravelPlanningState(TypedDict):
     【字段作用】候选景点列表。
 
     【数据来源】高德地图 POI 搜索的真实结果
-    【包含内容】每个景点有 id、name、location（经纬度）、description、duration（建议时长）、ticket_price、rating、tags
+    【包含内容】每个景点有 id、name、location（经纬度）、description、duration（建议时长）、
+    ticket_price、rating、tags
 
     【谁写入】attraction_agent_node（调用 search_attractions 工具）
     【谁读取】route_agent_node（计算景点间距离）、planner_agent_node（编排每日行程）
@@ -247,7 +248,8 @@ class TravelPlanningState(TypedDict):
     【字段作用】Agent 执行日志，前端 SSE 实时展示。
 
     【特殊处理】使用 add reducer，每个节点的日志追加到列表
-    【包含内容】每条日志有 agent_name、step、input_preview、output_preview、tool_calls、timestamp、duration_ms
+    【包含内容】每条日志有 agent_name、step、input_preview、output_preview、tool_calls、
+    timestamp、duration_ms
     【用途】前端 Planning.vue 页面实时显示进度
     """
 

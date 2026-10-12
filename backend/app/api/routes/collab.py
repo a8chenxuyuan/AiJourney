@@ -108,7 +108,8 @@ async def join_plan_by_token(
     invite.use_count = (invite.use_count or 0) + 1
     await session.commit()
     logger.info(
-        f"[协作] 用户 {current_user.id} 通过邀请加入行程 {plan.id}（邀请使用 {invite.use_count} 次）"
+        f"[协作] 用户 {current_user.id} 通过邀请加入行程 {plan.id}"
+        f"（邀请使用 {invite.use_count} 次）"
     )
 
     return StandardResponse(
