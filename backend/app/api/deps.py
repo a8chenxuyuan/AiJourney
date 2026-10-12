@@ -16,11 +16,12 @@ FastAPI 依赖注入模块。
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.services.auth_service import AuthService
-from app.models.db_models import User, TripPlanDB
+from app.models.db_models import User, TripPlanDB, PlanCollaborator
 from app.utils.security import decode_access_token
 
 
@@ -153,3 +154,80 @@ async def get_owned_plan(
         HTTPException: 行程不存在或不属于当前用户时抛出 404。
     """
     return await get_owned_plan_for_user(plan_id, current_user, session)
+
+
+async def get_accessible_plan_for_user(
+    plan_id: str,
+    current_user: User,
+    session: AsyncSession
+) -> TripPlanDB:
+    """
+    协作访问校验：所有者或协作者均可通过，返回行程计划记录。
+
+    与 get_owned_plan_for_user 平行的普通函数（非依赖），供 get_accessible_plan
+    依赖复用。用于"读/编辑类"端点（查看详情、反馈、重新生成、修订相关）——
+    协作者可以查看行程并提交反馈；删除、分享管理、邀请管理仍走 owner-only 校验。
+
+    无权限时与现有归属校验语义保持一致：统一返回 404，
+    不区分"不存在"与"无权访问"，避免向越权请求者泄露资源存在性。
+
+    Args:
+        plan_id: 行程计划 ID。
+        current_user: 已完成认证的用户对象。
+        session: 数据库会话。
+
+    Returns:
+        TripPlanDB: 访问校验通过的行程计划记录。
+
+    Raises:
+        HTTPException: 行程不存在，或当前用户既非所有者也非协作者时抛出 404。
+    """
+    plan = await session.get(TripPlanDB, plan_id)
+    if plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="行程计划不存在"
+        )
+
+    # 所有者直接放行
+    if plan.user_id == current_user.id:
+        return plan
+
+    # 协作者：查协作记录表确认成员身份
+    result = await session.execute(
+        select(PlanCollaborator).where(
+            PlanCollaborator.plan_id == plan_id,
+            PlanCollaborator.user_id == current_user.id
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="行程计划不存在"
+        )
+    return plan
+
+
+async def get_accessible_plan(
+    plan_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
+) -> TripPlanDB:
+    """
+    FastAPI 依赖：获取指定行程计划并校验"所有者或协作者"访问权。
+
+    供读/编辑类路由复用（查看详情、反馈、重新生成、修订相关）；
+    删除、分享链接管理、邀请管理等敏感操作仍使用 get_owned_plan。
+
+    Args:
+        plan_id: 路径参数中的行程计划 ID。
+        current_user: 当前登录用户。
+        session: 数据库会话。
+
+    Returns:
+        TripPlanDB: 访问校验通过的行程计划记录。
+
+    Raises:
+        HTTPException: 行程不存在或无访问权限时抛出 404。
+    """
+    return await get_accessible_plan_for_user(plan_id, current_user, session)

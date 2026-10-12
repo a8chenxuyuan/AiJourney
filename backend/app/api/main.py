@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db.init_db import init_db
 from app.utils.logger import setup_logging
-from app.api.routes import auth, user, trip, agent, map, poi, rag, memory, crawler, payment
+from app.api.routes import auth, user, trip, agent, map, poi, rag, memory, crawler, payment, collab
 
 
 @asynccontextmanager
@@ -67,6 +67,9 @@ app.add_middleware(
 # 所有接口统一以 /api 为前缀
 app.include_router(auth.router, prefix="/api/auth", tags=["认证"])
 app.include_router(user.router, prefix="/api/users", tags=["用户"])
+# 协作路由必须先于 trip 路由挂载：固定路径 /api/trip/collab/join/{token}
+# 要先于 trip 的 /{plan_id} 动态路由匹配，避免被误解析为 plan_id
+app.include_router(collab.router, prefix="/api/trip", tags=["行程协作"])
 app.include_router(trip.router, prefix="/api/trip", tags=["旅行规划"])
 app.include_router(agent.router, prefix="/api/agent", tags=["Agent"])
 app.include_router(map.router, prefix="/api/map", tags=["地图"])

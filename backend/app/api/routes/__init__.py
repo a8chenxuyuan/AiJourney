@@ -8,6 +8,6 @@ backend/app/api/routes/__init__.py
 - 可从本包导出各路由模块（可选）。
 """
 
-from app.api.routes import auth, user, trip, agent, map, poi, rag, memory, crawler, payment
+from app.api.routes import auth, user, trip, agent, map, poi, rag, memory, crawler, payment, collab
 
-__all__ = ["auth", "user", "trip", "agent", "map", "poi", "rag", "memory", "crawler", "payment"]
+__all__ = ["auth", "user", "trip", "agent", "map", "poi", "rag", "memory", "crawler", "payment", "collab"]

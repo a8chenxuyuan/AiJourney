@@ -504,3 +504,71 @@ def test_24_recommendations_api(client, user_headers):
     assert isinstance(items, list)
     for item in items:
         assert item["city"] and item["reason"] and item["source"]
+
+
+# ==================== 多人协作 ====================
+
+
+def test_25_collaboration_flow(client, user_headers, make_user, plan_ctx):
+    """
+    用例25：多人协作链路。
+
+    覆盖：所有者生成邀请 → 用户 B 加入（含重复加入幂等）→ B 查看行程详情 →
+    B 查看成员列表 → B 提交反馈（仅保存不 regenerate）→ B 删除行程被 403 拦截 →
+    所有者移除 B → B 再访问行程详情被拒绝。
+
+    复用会话级 plan_ctx 规划结果，避免再跑一次慢速规划链路。
+    """
+    plan_id = plan_ctx["plan_id"]
+
+    # 1. 所有者 A 生成邀请链接
+    resp = client.post(f"/api/trip/{plan_id}/collaborators/invite", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"生成邀请失败: {resp.text}"
+    token = resp.json()["data"]["token"]
+    assert token, "邀请响应缺少 token"
+    assert resp.json()["data"]["invite_path"] == f"/join/{token}"
+
+    # 2. 用户 B 注册并凭令牌加入协作
+    b_headers, b_username = make_user()
+    resp = client.post(f"/api/trip/collab/join/{token}", headers=b_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"B 加入协作失败: {resp.text}"
+    assert resp.json()["data"]["plan_id"] == plan_id
+
+    # 3. B 重复加入应幂等成功
+    resp = client.post(f"/api/trip/collab/join/{token}", headers=b_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True
+
+    # 4. B 可查看行程详情，且 is_owner=False
+    resp = client.get(f"/api/trip/{plan_id}", headers=b_headers)
+    assert resp.status_code == 200, f"协作者查看行程失败: {resp.text}"
+    assert resp.json()["data"]["plan"] is not None
+    assert resp.json()["data"]["is_owner"] is False
+
+    # 5. B 可查看成员列表：应同时包含所有者与协作者
+    resp = client.get(f"/api/trip/{plan_id}/collaborators", headers=b_headers)
+    assert resp.status_code == 200, f"协作者查看成员列表失败: {resp.text}"
+    members = resp.json()["data"]["collaborators"]
+    assert {m["role"] for m in members} == {"owner", "editor"}
+    assert any(m["username"] == b_username and m["role"] == "editor" for m in members)
+
+    # 6. B 提交一条反馈（仅保存，不触发 regenerate）
+    resp = client.post(
+        f"/api/trip/{plan_id}/feedback",
+        headers=b_headers,
+        json={"raw_text": "协作者建议：整体节奏可以更轻松一些", "tags": ["其他"]},
+    )
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"协作者提交反馈失败: {resp.text}"
+
+    # 7. B 尝试删除行程：删除仅限所有者，协作者应被 403 拦截
+    resp = client.delete(f"/api/trip/{plan_id}", headers=b_headers)
+    assert resp.status_code == 403, f"协作者删除行程应返回 403，实际: {resp.status_code}"
+
+    # 8. 所有者 A 移除协作者 B
+    b_user_id = client.get("/api/auth/me", headers=b_headers).json()["data"]["id"]
+    resp = client.delete(f"/api/trip/{plan_id}/collaborators/{b_user_id}", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"移除协作者失败: {resp.text}"
+
+    # 9. 移除后 B 再查看详情应被拒绝。注意：沿用现有归属校验语义，
+    #    无权限统一返回 404（不区分"不存在"与"无权访问"，避免泄露行程存在性）
+    resp = client.get(f"/api/trip/{plan_id}", headers=b_headers)
+    assert resp.status_code == 404, f"移除后协作者仍可访问行程，实际: {resp.status_code}"

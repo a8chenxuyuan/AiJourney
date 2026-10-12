@@ -14,6 +14,8 @@ import Planning from '@/views/Planning.vue'
 import Result from '@/views/Result.vue'
 import Profile from '@/views/Profile.vue'
 import SharedPlan from '@/views/SharedPlan.vue'
+// 引入邀请加入协作页
+import Join from '@/views/Join.vue'
 // 引入用户认证 store，用于路由守卫判断登录状态
 import { useAuthStore } from '@/stores/auth'
 
@@ -67,6 +69,13 @@ const routes: RouteRecordRaw[] = [
     name: 'SharedPlan',
     component: SharedPlan,
     meta: { title: '行程分享', public: true }
+  },
+  // /join/:token：邀请加入协作页，需登录（未登录先去登录，回跳后自动加入）
+  {
+    path: '/join/:token',
+    name: 'Join',
+    component: Join,
+    meta: { title: '加入协作' }
   }
 ]
 

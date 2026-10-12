@@ -189,6 +189,8 @@ export interface PlanDetailData {
   status: string
   plan: TripPlan
   version?: number | null
+  /** 当前登录用户是否为行程所有者（决定能否使用分享/邀请管理等 owner 操作） */
+  is_owner?: boolean
   diff_summary?: {
     total_changes: number
     days: Array<{

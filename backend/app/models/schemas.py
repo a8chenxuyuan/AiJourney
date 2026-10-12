@@ -550,3 +550,41 @@ class FavoriteOut(BaseModel):
     city: Optional[str] = Field(None, description="所属城市")
     item_data: Optional[dict] = Field(None, description="收藏对象完整数据快照")
     created_at: Optional[str] = Field(None, description="收藏时间（ISO 格式）")
+
+
+# ==================== 多人协作模型 ====================
+
+class CollaboratorOut(BaseModel):
+    """
+    行程成员信息响应。
+
+    所有者与协作者统一以成员形式返回：所有者 role=owner，
+    协作者 role=editor（可查看行程、提交反馈）。
+    """
+    user_id: int = Field(..., description="用户 ID")
+    username: str = Field(..., description="用户名")
+    role: str = Field(..., description="成员角色：owner（所有者）/ editor（协作者）")
+    joined_at: Optional[str] = Field(None, description="加入时间（ISO 格式），所有者为行程创建时间")
+
+
+class InviteOut(BaseModel):
+    """
+    邀请链接信息响应。
+
+    token 用于拼接前端加入协作路由 /join/{token}。
+    """
+    plan_id: str = Field(..., description="行程计划 ID")
+    token: str = Field(..., description="邀请令牌")
+    invite_path: str = Field(..., description="前端加入协作路由路径，如 /join/xxx")
+    expires_at: Optional[str] = Field(None, description="邀请过期时间（ISO 格式）")
+
+
+class CollaboratorJoinOut(BaseModel):
+    """
+    凭邀请令牌加入协作的响应。
+
+    前端据此跳转到对应行程的结果页。
+    """
+    plan_id: str = Field(..., description="加入的行程计划 ID")
+    city: Optional[str] = Field(None, description="行程目的地城市")
+    role: str = Field(default="editor", description="加入后的角色：owner（已是所有者）/ editor")

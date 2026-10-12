@@ -22,6 +22,8 @@ from app.db.session import engine
 # create_all 不会为"已存在的表"补充新增索引，
 # 因此这里显式列出外键/高频查询字段的索引，使用 IF NOT EXISTS 保证幂等。
 # 命名与 SQLAlchemy 默认约定 ix_<table>_<column> 一致。
+# 说明：plan_collaborators / plan_invites 两张新表（多人协作）与 plan_notifications 一样，
+# 由上方 Base.metadata.create_all 直接建表（含索引与唯一约束），无需在此登记。
 _IDEMPOTENT_INDEXES = [
     "CREATE INDEX IF NOT EXISTS ix_plan_revisions_parent_revision_id ON plan_revisions (parent_revision_id)",
     "CREATE INDEX IF NOT EXISTS ix_plan_feedback_revision_id ON plan_feedback (revision_id)",

@@ -12,7 +12,7 @@ SQLAlchemy 数据库模型定义模块。
 - SQLAlchemy ORM：Column、relationship、ForeignKey、JSON 等
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 
 from sqlalchemy import (
@@ -25,6 +25,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     JSON,
+    UniqueConstraint,
     func
 )
 from sqlalchemy.orm import relationship
@@ -282,4 +283,51 @@ class PlanNotification(Base):
     content = Column(Text, nullable=False, comment="通知内容")
     dedup_key = Column(String(96), unique=True, index=True, nullable=False, comment="去重键，防重复通知")
     is_read = Column(Boolean, default=False, comment="是否已读")
+    created_at = Column(DateTime, default=func.now(), comment="创建时间")
+
+
+class PlanCollaborator(Base):
+    """
+    行程协作者表。
+
+    存储被邀请参与某个行程协作的用户（可查看行程、提交反馈修订），
+    行程的删除/分享管理/邀请管理仍仅限所有者。
+    plan_id + user_id 唯一约束保证同一用户不会重复加入同一行程。
+    与 PlanNotification 一样为新增表，由 init_db 的 create_all 自动建表（含索引与唯一约束），
+    无需登记 _IDEMPOTENT_COLUMNS。
+    """
+    __tablename__ = "plan_collaborators"
+    # 联合唯一：防止同一用户通过重复使用邀请链接被重复加入
+    __table_args__ = (UniqueConstraint("plan_id", "user_id", name="uq_plan_collaborator_plan_user"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="协作记录 ID")
+    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="协作者用户 ID")
+    role = Column(String(32), nullable=False, default="editor", comment="协作角色：editor（查看+提交反馈）")
+    created_at = Column(DateTime, default=func.now(), comment="加入时间")
+
+
+class PlanInvite(Base):
+    """
+    行程邀请令牌表。
+
+    所有者为行程生成的邀请令牌：登录用户凭 token 加入成为协作者。
+    支持撤销（revoked）与过期（expires_at，默认生成后 7 天），use_count 记录实际加入人次。
+    与 PlanNotification 一样为新增表，由 init_db 的 create_all 自动建表（含索引与唯一约束），
+    无需登记 _IDEMPOTENT_COLUMNS。
+    """
+    __tablename__ = "plan_invites"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="邀请记录 ID")
+    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID")
+    token = Column(String(64), unique=True, index=True, nullable=False, comment="邀请令牌（加入凭证）")
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False, comment="生成邀请的所有者用户 ID")
+    expires_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now() + timedelta(days=7),
+        comment="过期时间，默认生成后 7 天"
+    )
+    use_count = Column(Integer, nullable=False, default=0, server_default="0", comment="通过该链接成功加入的人次")
+    revoked = Column(Boolean, nullable=False, default=False, comment="是否已被所有者撤销")
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
