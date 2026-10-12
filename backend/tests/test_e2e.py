@@ -30,16 +30,16 @@ from tests.conftest import API_BASE_URL, register_and_login
 try:
     _probe = httpx.get(f"{API_BASE_URL}/api/health", timeout=3)
     _probe.raise_for_status()
-except Exception:  # noqa: BLE001 - 连接失败/超时等一律视为服务不可用
+except Exception:
     pytest.skip(
         f"后端服务未运行于 {API_BASE_URL}，跳过 e2e 测试（请先启动 run.py 与 worker.py）",
         allow_module_level=True,
     )
 
 # 轮询参数
-PLAN_TIMEOUT_SECONDS = 900      # 规划链路含多次 LLM 调用，留足超时
+PLAN_TIMEOUT_SECONDS = 900  # 规划链路含多次 LLM 调用，留足超时
 REVISION_TIMEOUT_SECONDS = 600  # 反馈修订（patch/full 策略含 LLM）
-CRAWLER_TIMEOUT_SECONDS = 180   # 爬虫抓取外站，页数=1 时一般 1 分钟内
+CRAWLER_TIMEOUT_SECONDS = 180  # 爬虫抓取外站，页数=1 时一般 1 分钟内
 POLL_INTERVAL_SECONDS = 5
 
 
@@ -108,7 +108,7 @@ def plan_ctx(client, user_headers) -> dict:
                     break
                 if not line.startswith("data: "):
                     continue
-                payload = json.loads(line[len("data: "):])
+                payload = json.loads(line[len("data: ") :])
                 events.append(payload)
                 status = payload.get("status")
                 if status in ("completed", "failed"):
@@ -119,6 +119,7 @@ def plan_ctx(client, user_headers) -> dict:
 
     # 兜底：SSE 异常断开时直接轮询任务状态
     if not sse_done:
+
         def _finished() -> bool:
             r = client.get(f"/api/trip/{plan_id}", headers=user_headers)
             return r.json().get("data", {}).get("status") in ("completed", "failed")
@@ -267,7 +268,9 @@ def test_09_payment_get_order_paid(client, user_headers, plan_ctx):
 
 def test_10_payment_orders_list(client, user_headers, plan_ctx):
     """用例10：按行程查询订单列表非空。"""
-    resp = client.get("/api/payment/orders", headers=user_headers, params={"plan_id": plan_ctx["plan_id"]})
+    resp = client.get(
+        "/api/payment/orders", headers=user_headers, params={"plan_id": plan_ctx["plan_id"]}
+    )
     assert resp.status_code == 200
     assert len(resp.json()["data"]["orders"]) >= 1
 
@@ -392,14 +395,28 @@ def test_19_favorite_multi_type_and_list(client, user_headers, plan_ctx):
     """用例19：酒店/餐厅可收藏，列表包含全部类型，按城市筛选生效。"""
     plan_id = plan_ctx["plan_id"]
     suffix = uuid.uuid4().hex[:8]
-    client.post("/api/trip/favorites", headers=user_headers, json={
-        "city": "杭州", "item_type": "hotel",
-        "item_id": f"hotel_e2e_{suffix}", "item_name": "西湖国宾馆", "item_data": {},
-    })
-    client.post("/api/trip/favorites", headers=user_headers, json={
-        "city": "杭州", "item_type": "restaurant",
-        "item_id": f"rest_e2e_{suffix}", "item_name": "知味观", "item_data": {},
-    })
+    client.post(
+        "/api/trip/favorites",
+        headers=user_headers,
+        json={
+            "city": "杭州",
+            "item_type": "hotel",
+            "item_id": f"hotel_e2e_{suffix}",
+            "item_name": "西湖国宾馆",
+            "item_data": {},
+        },
+    )
+    client.post(
+        "/api/trip/favorites",
+        headers=user_headers,
+        json={
+            "city": "杭州",
+            "item_type": "restaurant",
+            "item_id": f"rest_e2e_{suffix}",
+            "item_name": "知味观",
+            "item_data": {},
+        },
+    )
 
     resp = client.get("/api/trip/favorites", headers=user_headers)
     items = resp.json()["data"]["favorites"]
@@ -420,7 +437,9 @@ def test_20_favorite_delete(client, user_headers, plan_ctx):
         "item_name": "临时景点",
         "item_data": {},
     }
-    fav_id = client.post("/api/trip/favorites", headers=user_headers, json=item).json()["data"]["id"]
+    fav_id = client.post("/api/trip/favorites", headers=user_headers, json=item).json()["data"][
+        "id"
+    ]
 
     assert client.delete(f"/api/trip/favorites/{fav_id}", headers=user_headers).status_code == 200
     remaining = client.get("/api/trip/favorites", headers=user_headers).json()["data"]["favorites"]
@@ -531,7 +550,9 @@ def test_25_collaboration_flow(client, user_headers, make_user, plan_ctx):
     # 2. 用户 B 注册并凭令牌加入协作
     b_headers, b_username = make_user()
     resp = client.post(f"/api/trip/collab/join/{token}", headers=b_headers)
-    assert resp.status_code == 200 and resp.json()["success"] is True, f"B 加入协作失败: {resp.text}"
+    assert resp.status_code == 200 and resp.json()["success"] is True, (
+        f"B 加入协作失败: {resp.text}"
+    )
     assert resp.json()["data"]["plan_id"] == plan_id
 
     # 3. B 重复加入应幂等成功
@@ -557,7 +578,9 @@ def test_25_collaboration_flow(client, user_headers, make_user, plan_ctx):
         headers=b_headers,
         json={"raw_text": "协作者建议：整体节奏可以更轻松一些", "tags": ["其他"]},
     )
-    assert resp.status_code == 200 and resp.json()["success"] is True, f"协作者提交反馈失败: {resp.text}"
+    assert resp.status_code == 200 and resp.json()["success"] is True, (
+        f"协作者提交反馈失败: {resp.text}"
+    )
 
     # 7. B 尝试删除行程：删除仅限所有者，协作者应被 403 拦截
     resp = client.delete(f"/api/trip/{plan_id}", headers=b_headers)
@@ -566,7 +589,9 @@ def test_25_collaboration_flow(client, user_headers, make_user, plan_ctx):
     # 8. 所有者 A 移除协作者 B
     b_user_id = client.get("/api/auth/me", headers=b_headers).json()["data"]["id"]
     resp = client.delete(f"/api/trip/{plan_id}/collaborators/{b_user_id}", headers=user_headers)
-    assert resp.status_code == 200 and resp.json()["success"] is True, f"移除协作者失败: {resp.text}"
+    assert resp.status_code == 200 and resp.json()["success"] is True, (
+        f"移除协作者失败: {resp.text}"
+    )
 
     # 9. 移除后 B 再查看详情应被拒绝。注意：沿用现有归属校验语义，
     #    无权限统一返回 404（不区分"不存在"与"无权访问"，避免泄露行程存在性）

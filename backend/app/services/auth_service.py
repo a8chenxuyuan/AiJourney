@@ -13,12 +13,13 @@ backend/app/services/auth_service.py
 """
 
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import User
 from app.models.schemas import UserCreate, UserResponse
-from app.utils.security import get_password_hash, verify_password, create_access_token
+from app.utils.security import create_access_token, get_password_hash, verify_password
 
 
 class AuthService:
@@ -92,9 +93,7 @@ class AuthService:
         """
         hashed_password = get_password_hash(user_create.password)
         db_user = User(
-            username=user_create.username,
-            email=user_create.email,
-            password_hash=hashed_password
+            username=user_create.username, email=user_create.email, password_hash=hashed_password
         )
         session.add(db_user)
         await session.flush()  # 立即刷新，获取自增 ID
@@ -102,7 +101,9 @@ class AuthService:
         return db_user
 
     @staticmethod
-    async def authenticate_user(session: AsyncSession, username: str, password: str) -> Optional[User]:
+    async def authenticate_user(
+        session: AsyncSession, username: str, password: str
+    ) -> Optional[User]:
         """
         校验用户名和密码是否匹配。
 

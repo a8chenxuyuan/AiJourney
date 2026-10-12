@@ -21,19 +21,19 @@ backend/app/api/routes/collab.py
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_accessible_plan, get_current_user, get_owned_plan
 from app.db.session import get_db
-from app.api.deps import get_current_user, get_owned_plan, get_accessible_plan
 from app.models.db_models import PlanCollaborator, PlanInvite, TripPlanDB, User
 from app.models.schemas import (
-    StandardResponse,
+    CollaboratorJoinOut,
     CollaboratorOut,
     InviteOut,
-    CollaboratorJoinOut,
+    StandardResponse,
 )
 
 router = APIRouter()
@@ -46,7 +46,7 @@ INVITE_EXPIRE_DAYS = 7
 async def join_plan_by_token(
     token: str,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     登录用户凭邀请令牌加入行程协作。
@@ -83,8 +83,7 @@ async def join_plan_by_token(
     # 幂等：所有者本人或已加入过的用户直接成功返回
     join_result = await session.execute(
         select(PlanCollaborator).where(
-            PlanCollaborator.plan_id == plan.id,
-            PlanCollaborator.user_id == current_user.id
+            PlanCollaborator.plan_id == plan.id, PlanCollaborator.user_id == current_user.id
         )
     )
     existing = join_result.scalar_one_or_none()
@@ -92,30 +91,30 @@ async def join_plan_by_token(
         return StandardResponse(
             success=True,
             message="你是该行程的所有者，无需加入协作",
-            data=CollaboratorJoinOut(plan_id=plan.id, city=plan.city, role="owner").model_dump()
+            data=CollaboratorJoinOut(plan_id=plan.id, city=plan.city, role="owner").model_dump(),
         )
     if existing is not None:
         return StandardResponse(
             success=True,
             message="你已加入该行程协作",
-            data=CollaboratorJoinOut(plan_id=plan.id, city=plan.city, role=existing.role).model_dump()
+            data=CollaboratorJoinOut(
+                plan_id=plan.id, city=plan.city, role=existing.role
+            ).model_dump(),
         )
 
     # 首次加入：创建协作者行并累计邀请使用次数
-    collaborator = PlanCollaborator(
-        plan_id=plan.id,
-        user_id=current_user.id,
-        role="editor"
-    )
+    collaborator = PlanCollaborator(plan_id=plan.id, user_id=current_user.id, role="editor")
     session.add(collaborator)
     invite.use_count = (invite.use_count or 0) + 1
     await session.commit()
-    logger.info(f"[协作] 用户 {current_user.id} 通过邀请加入行程 {plan.id}（邀请使用 {invite.use_count} 次）")
+    logger.info(
+        f"[协作] 用户 {current_user.id} 通过邀请加入行程 {plan.id}（邀请使用 {invite.use_count} 次）"
+    )
 
     return StandardResponse(
         success=True,
         message="已加入行程协作",
-        data=CollaboratorJoinOut(plan_id=plan.id, city=plan.city, role="editor").model_dump()
+        data=CollaboratorJoinOut(plan_id=plan.id, city=plan.city, role="editor").model_dump(),
     )
 
 
@@ -123,7 +122,7 @@ async def join_plan_by_token(
 async def invite_collaborator(
     plan_id: str,
     plan: TripPlanDB = Depends(get_owned_plan),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     所有者为行程生成邀请令牌（仅所有者）。
@@ -141,10 +140,7 @@ async def invite_collaborator(
     token = uuid.uuid4().hex
     expires_at = datetime.now() + timedelta(days=INVITE_EXPIRE_DAYS)
     invite = PlanInvite(
-        plan_id=plan.id,
-        token=token,
-        created_by=plan.user_id,
-        expires_at=expires_at
+        plan_id=plan.id, token=token, created_by=plan.user_id, expires_at=expires_at
     )
     session.add(invite)
     await session.commit()
@@ -157,8 +153,8 @@ async def invite_collaborator(
             plan_id=plan.id,
             token=token,
             invite_path=f"/join/{token}",
-            expires_at=expires_at.isoformat()
-        ).model_dump()
+            expires_at=expires_at.isoformat(),
+        ).model_dump(),
     )
 
 
@@ -166,7 +162,7 @@ async def invite_collaborator(
 async def list_collaborators(
     plan_id: str,
     plan: TripPlanDB = Depends(get_accessible_plan),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     查询行程成员列表（所有者或协作者均可）。
@@ -188,12 +184,14 @@ async def list_collaborators(
     owner_result = await session.execute(select(User).where(User.id == plan.user_id))
     owner_user = owner_result.scalar_one_or_none()
     if owner_user is not None:
-        members.append(CollaboratorOut(
-            user_id=owner_user.id,
-            username=owner_user.username,
-            role="owner",
-            joined_at=plan.created_at.isoformat() if plan.created_at else None
-        ).model_dump())
+        members.append(
+            CollaboratorOut(
+                user_id=owner_user.id,
+                username=owner_user.username,
+                role="owner",
+                joined_at=plan.created_at.isoformat() if plan.created_at else None,
+            ).model_dump()
+        )
 
     # 协作者行：联表取用户名，按加入时间正序
     collab_result = await session.execute(
@@ -203,17 +201,17 @@ async def list_collaborators(
         .order_by(PlanCollaborator.created_at.asc())
     )
     for collaborator, user in collab_result.all():
-        members.append(CollaboratorOut(
-            user_id=user.id,
-            username=user.username,
-            role=collaborator.role or "editor",
-            joined_at=collaborator.created_at.isoformat() if collaborator.created_at else None
-        ).model_dump())
+        members.append(
+            CollaboratorOut(
+                user_id=user.id,
+                username=user.username,
+                role=collaborator.role or "editor",
+                joined_at=collaborator.created_at.isoformat() if collaborator.created_at else None,
+            ).model_dump()
+        )
 
     return StandardResponse(
-        success=True,
-        message="获取成功",
-        data={"plan_id": plan.id, "collaborators": members}
+        success=True, message="获取成功", data={"plan_id": plan.id, "collaborators": members}
     )
 
 
@@ -222,7 +220,7 @@ async def remove_collaborator(
     plan_id: str,
     collaborator_user_id: int,
     plan: TripPlanDB = Depends(get_owned_plan),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     所有者移除协作者（仅所有者）。
@@ -244,8 +242,7 @@ async def remove_collaborator(
     """
     result = await session.execute(
         select(PlanCollaborator).where(
-            PlanCollaborator.plan_id == plan.id,
-            PlanCollaborator.user_id == collaborator_user_id
+            PlanCollaborator.plan_id == plan.id, PlanCollaborator.user_id == collaborator_user_id
         )
     )
     collaborator = result.scalar_one_or_none()
@@ -259,5 +256,5 @@ async def remove_collaborator(
     return StandardResponse(
         success=True,
         message="已移除协作者",
-        data={"plan_id": plan.id, "removed_user_id": collaborator_user_id}
+        data={"plan_id": plan.id, "removed_user_id": collaborator_user_id},
     )

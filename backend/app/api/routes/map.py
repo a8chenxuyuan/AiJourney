@@ -13,14 +13,11 @@ backend/app/api/routes/map.py
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.api.deps import get_current_user
 from app.models.db_models import User
 from app.models.schemas import StandardResponse
 from app.services.amap_service import AmapService
-
 
 router = APIRouter()
 
@@ -40,7 +37,7 @@ async def search_poi(
     keyword: str = Query(..., description="搜索关键词"),
     city: str = Query(..., description="城市名称"),
     page_size: int = Query(10, ge=1, le=50, description="返回数量"),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     POI 搜索接口。
@@ -57,17 +54,12 @@ async def search_poi(
     service = _get_amap_service()
     pois = await service.search_poi(keyword, city, page_size)
 
-    return StandardResponse(
-        success=True,
-        message="搜索成功",
-        data=pois
-    )
+    return StandardResponse(success=True, message="搜索成功", data=pois)
 
 
 @router.get("/weather", response_model=StandardResponse)
 async def get_weather(
-    city: str = Query(..., description="城市名称"),
-    current_user: User = Depends(get_current_user)
+    city: str = Query(..., description="城市名称"), current_user: User = Depends(get_current_user)
 ):
     """
     天气查询接口。
@@ -82,11 +74,7 @@ async def get_weather(
     service = _get_amap_service()
     weather = await service.get_weather(city)
 
-    return StandardResponse(
-        success=True,
-        message="查询成功",
-        data=weather
-    )
+    return StandardResponse(success=True, message="查询成功", data=weather)
 
 
 @router.post("/route", response_model=StandardResponse)
@@ -94,7 +82,7 @@ async def plan_route(
     origin: str = Query(..., description="起点"),
     destination: str = Query(..., description="终点"),
     mode: str = Query("driving", description="交通方式"),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     路线规划接口。
@@ -111,8 +99,4 @@ async def plan_route(
     service = _get_amap_service()
     route = await service.plan_route(origin, destination, mode)
 
-    return StandardResponse(
-        success=True,
-        message="规划成功",
-        data=route
-    )
+    return StandardResponse(success=True, message="规划成功", data=route)

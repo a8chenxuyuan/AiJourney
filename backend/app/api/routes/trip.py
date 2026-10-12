@@ -25,43 +25,41 @@ from loguru import logger
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_accessible_plan, get_current_user, get_owned_plan
 from app.db.session import get_db
-from app.api.deps import get_current_user, get_owned_plan, get_accessible_plan
 from app.models.db_models import (
-    PlanNotification,
+    Favorite,
     PlanCollaborator,
+    PlanFeedback,
     PlanInvite,
     PlanLogDB,
+    PlanNotification,
+    PlanRevision,
     TripPlanDB,
     User,
     UserMemory,
-    PlanFeedback,
-    PlanRevision,
-    Favorite
 )
 from app.models.schemas import (
-    TripRequest,
-    TripPlan,
-    TripPlanResponse,
-    StandardResponse,
-    RecalculateRequest,
-    UserFeedback,
-    PlanFeedbackRequest,
-    PlanFeedbackResponse,
-    PlanChatRequest,
-    PlanChatMessage,
-    RevisionSummary,
-    FeedbackRecord,
-    StructuredFeedback,
-    ShareCreateRequest,
-    ShareInfo,
     FavoriteCreateRequest,
     FavoriteOut,
+    FeedbackRecord,
+    PlanChatRequest,
+    PlanFeedbackRequest,
+    PlanFeedbackResponse,
+    RecalculateRequest,
+    RevisionSummary,
+    ShareCreateRequest,
+    ShareInfo,
+    StandardResponse,
+    StructuredFeedback,
+    TripPlan,
+    TripPlanResponse,
+    TripRequest,
+    UserFeedback,
 )
-from app.utils.queue import enqueue_planning_task, enqueue_revision_task, enqueue_recalculate_task
-from app.services.memory_service import MemoryService
 from app.services.llm_service import get_llm
-
+from app.services.memory_service import MemoryService
+from app.utils.queue import enqueue_planning_task, enqueue_recalculate_task, enqueue_revision_task
 
 router = APIRouter()
 
@@ -86,7 +84,7 @@ def _calculate_days(start_date: str, end_date: str) -> int:
 async def create_plan(
     request: TripRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     创建旅行规划任务。
@@ -117,7 +115,7 @@ async def create_plan(
         end_date=request.end_date,
         travel_days=travel_days,
         request_data=request.model_dump(mode="json"),
-        status="pending"
+        status="pending",
     )
     session.add(db_plan)
     await session.flush()
@@ -126,15 +124,13 @@ async def create_plan(
 
     # 投递到 Redis 队列，由 ARQ Worker 进程异步执行，实现 API 与任务执行解耦
     await enqueue_planning_task(
-        plan_id=plan_id,
-        request=request.model_dump(mode="json"),
-        user_id=current_user.id
+        plan_id=plan_id, request=request.model_dump(mode="json"), user_id=current_user.id
     )
 
     return StandardResponse(
         success=True,
         message="规划任务已创建",
-        data=TripPlanResponse(plan_id=plan_id, status="pending").model_dump()
+        data=TripPlanResponse(plan_id=plan_id, status="pending").model_dump(),
     )
 
 
@@ -144,10 +140,7 @@ async def create_plan(
 
 
 @router.get("/share/{token}", response_model=StandardResponse)
-async def get_shared_plan(
-    token: str,
-    session: AsyncSession = Depends(get_db)
-):
+async def get_shared_plan(token: str, session: AsyncSession = Depends(get_db)):
     """
     通过分享令牌公开查看行程（无需登录）。
 
@@ -163,9 +156,7 @@ async def get_shared_plan(
     Returns:
         StandardResponse: 行程只读数据。
     """
-    result = await session.execute(
-        select(TripPlanDB).where(TripPlanDB.share_token == token)
-    )
+    result = await session.execute(select(TripPlanDB).where(TripPlanDB.share_token == token))
     plan = result.scalar_one_or_none()
     if plan is None:
         raise HTTPException(status_code=404, detail="分享链接不存在或已被关闭")
@@ -189,8 +180,8 @@ async def get_shared_plan(
             "status": plan.status,
             "city": plan.city,
             "version": current_revision.version if current_revision else None,
-            "plan": plan_data
-        }
+            "plan": plan_data,
+        },
     )
 
 
@@ -199,7 +190,7 @@ async def create_share(
     plan_id: str,
     share_request: ShareCreateRequest,
     plan: TripPlanDB = Depends(get_owned_plan),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     开启行程分享：为行程生成（或复用）分享令牌。
@@ -236,15 +227,14 @@ async def create_share(
             share_token=token,
             share_path=f"/share/{token}",
             expires_at=expires_at.isoformat() if expires_at else None,
-            share_view_count=plan.share_view_count or 0
-        ).model_dump()
+            share_view_count=plan.share_view_count or 0,
+        ).model_dump(),
     )
 
 
 @router.delete("/{plan_id}/share", response_model=StandardResponse)
 async def close_share(
-    plan: TripPlanDB = Depends(get_owned_plan),
-    session: AsyncSession = Depends(get_db)
+    plan: TripPlanDB = Depends(get_owned_plan), session: AsyncSession = Depends(get_db)
 ):
     """
     关闭行程分享：清空分享令牌，原链接立即失效。
@@ -270,7 +260,7 @@ async def close_share(
 async def add_favorite(
     fav_request: FavoriteCreateRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     添加收藏（景点/酒店/餐厅）。
@@ -288,8 +278,7 @@ async def add_favorite(
     # 幂等：已收藏过同一对象则不再重复插入
     result = await session.execute(
         select(Favorite).where(
-            Favorite.user_id == current_user.id,
-            Favorite.item_id == fav_request.item_id
+            Favorite.user_id == current_user.id, Favorite.item_id == fav_request.item_id
         )
     )
     existing = result.scalar_one_or_none()
@@ -304,8 +293,8 @@ async def add_favorite(
                 item_name=existing.item_name,
                 city=existing.city,
                 item_data=existing.item_data,
-                created_at=existing.created_at.isoformat() if existing.created_at else None
-            ).model_dump()
+                created_at=existing.created_at.isoformat() if existing.created_at else None,
+            ).model_dump(),
         )
 
     favorite = Favorite(
@@ -314,12 +303,14 @@ async def add_favorite(
         item_type=fav_request.item_type,
         item_id=fav_request.item_id,
         item_name=fav_request.item_name,
-        item_data=fav_request.item_data
+        item_data=fav_request.item_data,
     )
     session.add(favorite)
     await session.commit()
     await session.refresh(favorite)
-    logger.info(f"[收藏] 用户 {current_user.id} 收藏 {fav_request.item_type} {fav_request.item_name}")
+    logger.info(
+        f"[收藏] 用户 {current_user.id} 收藏 {fav_request.item_type} {fav_request.item_name}"
+    )
 
     return StandardResponse(
         success=True,
@@ -331,8 +322,8 @@ async def add_favorite(
             item_name=favorite.item_name,
             city=favorite.city,
             item_data=favorite.item_data,
-            created_at=favorite.created_at.isoformat() if favorite.created_at else None
-        ).model_dump()
+            created_at=favorite.created_at.isoformat() if favorite.created_at else None,
+        ).model_dump(),
     )
 
 
@@ -340,7 +331,7 @@ async def add_favorite(
 async def list_favorites(
     city: Optional[str] = None,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     查询当前用户的收藏列表，支持按城市过滤。
@@ -372,18 +363,17 @@ async def list_favorites(
                     item_name=f.item_name,
                     city=f.city,
                     item_data=f.item_data,
-                    created_at=f.created_at.isoformat() if f.created_at else None
+                    created_at=f.created_at.isoformat() if f.created_at else None,
                 ).model_dump()
                 for f in favorites
             ]
-        }
+        },
     )
 
 
 @router.get("/favorites/cities", response_model=StandardResponse)
 async def list_favorite_cities(
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)
 ):
     """
     查询当前用户收藏内容涉及的城市列表（去重）。
@@ -398,10 +388,9 @@ async def list_favorite_cities(
         StandardResponse: 城市名数组（按收藏时间倒序）。
     """
     result = await session.execute(
-        select(Favorite.city).where(
-            Favorite.user_id == current_user.id,
-            Favorite.city.is_not(None)
-        ).order_by(Favorite.created_at.desc())
+        select(Favorite.city)
+        .where(Favorite.user_id == current_user.id, Favorite.city.is_not(None))
+        .order_by(Favorite.created_at.desc())
     )
     # 按收藏时间倒序去重，保留最近收藏的城市优先
     cities: List[str] = []
@@ -416,7 +405,7 @@ async def list_favorite_cities(
 async def remove_favorite(
     favorite_id: int,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     取消收藏（仅能删除自己的收藏）。
@@ -430,10 +419,7 @@ async def remove_favorite(
         StandardResponse: 操作结果。
     """
     result = await session.execute(
-        select(Favorite).where(
-            Favorite.id == favorite_id,
-            Favorite.user_id == current_user.id
-        )
+        select(Favorite).where(Favorite.id == favorite_id, Favorite.user_id == current_user.id)
     )
     favorite = result.scalar_one_or_none()
     if favorite is None:
@@ -450,8 +436,7 @@ async def remove_favorite(
 
 @router.get("/notifications", response_model=StandardResponse)
 async def list_notifications(
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)
 ):
     """
     获取当前用户的站内通知列表（created_at 倒序，限 50 条）与未读数。
@@ -468,7 +453,7 @@ async def list_notifications(
     unread_result = await session.execute(
         select(func.count())
         .select_from(PlanNotification)
-        .where(PlanNotification.user_id == current_user.id, PlanNotification.is_read == False)  # noqa: E712
+        .where(PlanNotification.user_id == current_user.id, PlanNotification.is_read == False)
     )
     notifications = [
         {
@@ -484,14 +469,13 @@ async def list_notifications(
     return StandardResponse(
         success=True,
         message="获取成功",
-        data={"notifications": notifications, "unread_count": int(unread_result.scalar() or 0)}
+        data={"notifications": notifications, "unread_count": int(unread_result.scalar() or 0)},
     )
 
 
 @router.post("/notifications/read-all", response_model=StandardResponse)
 async def read_all_notifications(
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)
 ):
     """
     把当前用户的全部未读通知标记为已读。
@@ -501,11 +485,13 @@ async def read_all_notifications(
     """
     result = await session.execute(
         update(PlanNotification)
-        .where(PlanNotification.user_id == current_user.id, PlanNotification.is_read == False)  # noqa: E712
+        .where(PlanNotification.user_id == current_user.id, PlanNotification.is_read == False)
         .values(is_read=True)
     )
     await session.commit()
-    return StandardResponse(success=True, message="已全部标记为已读", data={"marked": result.rowcount or 0})
+    return StandardResponse(
+        success=True, message="已全部标记为已读", data={"marked": result.rowcount or 0}
+    )
 
 
 # ==================== 个性化推荐 ====================
@@ -515,7 +501,7 @@ def _score_recommendation_cities(
     favorite_cities: List[str],
     memory_cities: List[str],
     history_cities: List[str],
-    knowledge_cities: Optional[List[str]] = None
+    knowledge_cities: Optional[List[str]] = None,
 ) -> List[Tuple[str, Dict[str, Any]]]:
     """
     纯函数：多来源加权打分，返回 [(city, 统计信息)]，按分数降序排列。
@@ -532,8 +518,12 @@ def _score_recommendation_cities(
             return
         if city not in stats:
             stats[city] = {
-                "score": 0, "favorites": 0, "memory": 0,
-                "history": 0, "knowledge": 0, "first_seen": len(stats)
+                "score": 0,
+                "favorites": 0,
+                "memory": 0,
+                "history": 0,
+                "knowledge": 0,
+                "first_seen": len(stats),
             }
         stats[city]["score"] += weight
         stats[city][source] += 1
@@ -544,7 +534,7 @@ def _score_recommendation_cities(
         _add(city, "memory", 2)
     for city in history_cities:
         _add(city, "history", 1)
-    for city in (knowledge_cities or []):
+    for city in knowledge_cities or []:
         _add(city, "knowledge", 1)
 
     source_priority = {"favorites": 0, "memory": 1, "history": 2, "knowledge": 3}
@@ -553,7 +543,7 @@ def _score_recommendation_cities(
         """取计数最多的来源（并列时取优先级更高的）。"""
         return min(
             (s for s in source_priority if info[s] > 0),
-            key=lambda s: (-info[s], source_priority[s])
+            key=lambda s: (-info[s], source_priority[s]),
         )
 
     def _sort_key(item: Tuple[str, Dict[str, Any]]) -> Tuple[int, int, int]:
@@ -587,16 +577,14 @@ async def _collect_knowledge_cities() -> List[str]:
     """
     try:
         from app.services.rag_service import get_rag_service
+
         service = get_rag_service()
 
         def _scroll_cities() -> List[str]:
             """同步执行 Qdrant scroll，提取 payload 中的去重城市列表。"""
             service._ensure_collection()
             points, _ = service.client.scroll(
-                service.collection_name,
-                limit=256,
-                with_payload=True,
-                with_vectors=False
+                service.collection_name, limit=256, with_payload=True, with_vectors=False
             )
             cities: List[str] = []
             for point in points or []:
@@ -613,8 +601,7 @@ async def _collect_knowledge_cities() -> List[str]:
 
 @router.get("/recommendations", response_model=StandardResponse)
 async def get_recommendations(
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)
 ):
     """
     个性化城市推荐（不使用 LLM）。
@@ -634,18 +621,19 @@ async def get_recommendations(
     favorite_cities = [row[0] for row in fav_result if row[0]]
 
     mem_result = await session.execute(
-        select(UserMemory.city).where(
+        select(UserMemory.city)
+        .where(
             UserMemory.user_id == current_user.id,
             UserMemory.sentiment == "positive",
-            UserMemory.city.is_not(None)
-        ).order_by(UserMemory.created_at.desc())
+            UserMemory.city.is_not(None),
+        )
+        .order_by(UserMemory.created_at.desc())
     )
     memory_cities = [row[0] for row in mem_result if row[0]]
 
     hist_result = await session.execute(
         select(TripPlanDB.city).where(
-            TripPlanDB.user_id == current_user.id,
-            TripPlanDB.status == "completed"
+            TripPlanDB.user_id == current_user.id, TripPlanDB.status == "completed"
         )
     )
     history_cities = [row[0] for row in hist_result if row[0]]
@@ -653,7 +641,9 @@ async def get_recommendations(
     knowledge_cities = await _collect_knowledge_cities()
 
     # ==================== 步骤 2：加权打分取 Top 5 ====================
-    scored = _score_recommendation_cities(favorite_cities, memory_cities, history_cities, knowledge_cities)
+    scored = _score_recommendation_cities(
+        favorite_cities, memory_cities, history_cities, knowledge_cities
+    )
     items: List[Dict[str, Any]] = []
     for city, info in scored[:5]:
         reason, source = _build_recommendation_reason(info)
@@ -663,14 +653,12 @@ async def get_recommendations(
     if items:
         try:
             from app.services.rag_service import get_rag_service
+
             rag = get_rag_service()
             for item in items[:3]:
                 try:
                     results = await asyncio.to_thread(
-                        rag.search,
-                        query=f"{item['city']} 必去景点推荐",
-                        city=item["city"],
-                        top_k=3
+                        rag.search, query=f"{item['city']} 必去景点推荐", city=item["city"], top_k=3
                     )
                     titles = [r.get("title") for r in results if r.get("title")]
                     if titles:
@@ -687,7 +675,7 @@ async def get_recommendations(
 async def get_plan(
     plan: TripPlanDB = Depends(get_accessible_plan),
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     查询指定行程计划的当前结果（所有者或协作者均可）。
@@ -708,7 +696,9 @@ async def get_plan(
     diff_summary = current_revision.diff_summary if current_revision else None
 
     # 调试日志：记录每次 fetchPlan 的响应版本
-    logger.debug(f"[GET /api/trip/{plan.id}] returning version={current_revision.version if current_revision else None}, diff_total={(diff_summary or {}).get('total_changes') if diff_summary else 0}")
+    logger.debug(
+        f"[GET /api/trip/{plan.id}] returning version={current_revision.version if current_revision else None}, diff_total={(diff_summary or {}).get('total_changes') if diff_summary else 0}"
+    )
 
     return StandardResponse(
         success=True,
@@ -721,8 +711,8 @@ async def get_plan(
             "diff_summary": diff_summary,
             "plan": plan_data,
             # 是否为行程所有者：决定前端能否展示分享/删除/邀请管理等 owner 专属操作
-            "is_owner": plan.user_id == current_user.id
-        }
+            "is_owner": plan.user_id == current_user.id,
+        },
     )
 
 
@@ -731,7 +721,7 @@ async def delete_plan(
     plan_id: str,
     plan: TripPlanDB = Depends(get_accessible_plan),
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     删除行程计划（仅所有者）。
@@ -753,8 +743,7 @@ async def delete_plan(
     # 删除是 owner 专属操作：协作者通过可访问校验后，在此处被 403 拦截
     if plan.user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅行程所有者可以删除行程"
+            status_code=status.HTTP_403_FORBIDDEN, detail="仅行程所有者可以删除行程"
         )
 
     # 先显式清理以 plan_id 关联的子表数据（不走 ORM 级联，行为更可控），
@@ -769,11 +758,7 @@ async def delete_plan(
     await session.commit()
     logger.info(f"[行程] 行程 {plan_id} 已被所有者 {current_user.id} 删除")
 
-    return StandardResponse(
-        success=True,
-        message="行程已删除",
-        data={"plan_id": plan_id}
-    )
+    return StandardResponse(success=True, message="行程已删除", data={"plan_id": plan_id})
 
 
 @router.post("/{plan_id}/recalculate", response_model=StandardResponse)
@@ -781,7 +766,7 @@ async def recalculate_plan(
     recalc_request: RecalculateRequest,
     plan: TripPlanDB = Depends(get_accessible_plan),
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     用户调整某天景点顺序后重新规划路线和行程。
@@ -807,26 +792,23 @@ async def recalculate_plan(
     # 行程必须是已完成状态才能重算（修订中防并发，其余状态没有可重算的版本）
     if plan.status == "revising":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="行程正在修订中，请等待当前任务完成"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="行程正在修订中，请等待当前任务完成"
         )
     if plan.status != "completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"行程当前状态为 {plan.status}，仅已完成的行程支持重算"
+            detail=f"行程当前状态为 {plan.status}，仅已完成的行程支持重算",
         )
 
     # 多城联游行程的重排需要按城市分段处理，暂不支持
     if plan.cities_json:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="多城联游行程暂不支持手动排序重算"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="多城联游行程暂不支持手动排序重算"
         )
 
     if not recalc_request.attraction_ids:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="attraction_ids 不能为空"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="attraction_ids 不能为空"
         )
 
     # 加载当前生效版本作为重算基底
@@ -834,25 +816,23 @@ async def recalculate_plan(
     current_revision = await memory_service.get_current_revision(session, plan.id)
     if not current_revision:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="未找到当前生效的行程版本"
+            status_code=status.HTTP_404_NOT_FOUND, detail="未找到当前生效的行程版本"
         )
     previous_plan = TripPlan(**current_revision.trip_plan_json)
 
     # 定位目标天
     target_day = next(
-        (d for d in previous_plan.day_plans if d.day_index == recalc_request.day_index),
-        None
+        (d for d in previous_plan.day_plans if d.day_index == recalc_request.day_index), None
     )
     if target_day is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"第 {recalc_request.day_index} 天不存在（行程共 {len(previous_plan.day_plans)} 天）"
+            detail=f"第 {recalc_request.day_index} 天不存在（行程共 {len(previous_plan.day_plans)} 天）",
         )
     if not target_day.attractions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"第 {recalc_request.day_index} 天没有景点，无法重排"
+            detail=f"第 {recalc_request.day_index} 天没有景点，无法重排",
         )
 
     # 按用户提交的 ID 顺序重排（id 缺失时按名称兜底匹配）
@@ -865,13 +845,12 @@ async def recalculate_plan(
         if attraction is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"景点 {key} 不在第 {recalc_request.day_index} 天的行程中"
+                detail=f"景点 {key} 不在第 {recalc_request.day_index} 天的行程中",
             )
         obj_key = id(attraction)
         if obj_key in matched_keys:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"景点 {key} 重复出现"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"景点 {key} 重复出现"
             )
         matched_keys.add(obj_key)
         matched.append(attraction)
@@ -892,7 +871,7 @@ async def recalculate_plan(
     request_data = plan.request_data or {
         "city": plan.city,
         "start_date": plan.start_date,
-        "end_date": plan.end_date
+        "end_date": plan.end_date,
     }
     await enqueue_recalculate_task(
         plan_id=plan.id,
@@ -901,10 +880,12 @@ async def recalculate_plan(
         parent_revision_id=current_revision.id,
         previous_plan=previous_plan.model_dump(mode="json"),
         revision_notes=revision_notes,
-        day_attractions=[a.model_dump(mode="json") for a in target_day.attractions]
+        day_attractions=[a.model_dump(mode="json") for a in target_day.attractions],
     )
-    logger.info(f"[重算] 行程 {plan.id} 第 {recalc_request.day_index} 天重排重算任务已入队，"
-                f"新顺序：{ordered_names}")
+    logger.info(
+        f"[重算] 行程 {plan.id} 第 {recalc_request.day_index} 天重排重算任务已入队，"
+        f"新顺序：{ordered_names}"
+    )
 
     return StandardResponse(
         success=True,
@@ -913,8 +894,8 @@ async def recalculate_plan(
             "plan_id": plan.id,
             "status": "revising",
             "day_index": recalc_request.day_index,
-            "attraction_count": len(target_day.attractions)
-        }
+            "attraction_count": len(target_day.attractions),
+        },
     )
 
 
@@ -924,7 +905,7 @@ async def submit_plan_feedback(
     feedback: PlanFeedbackRequest,
     plan: TripPlanDB = Depends(get_accessible_plan),
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     提交用户对行程计划的修改反馈。
@@ -952,18 +933,17 @@ async def submit_plan_feedback(
     # 行程必须在"已完成"状态才能接受反馈
     if plan.status == "failed":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="行程生成失败，请重新发起规划"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="行程生成失败，请重新发起规划"
         )
     if plan.status == "revising":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="行程正在修订中，请等待当前任务完成后再提交反馈"
+            detail="行程正在修订中，请等待当前任务完成后再提交反馈",
         )
     if plan.status not in ("completed", "revising"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"行程当前状态为 {plan.status}，无法提交反馈"
+            detail=f"行程当前状态为 {plan.status}，无法提交反馈",
         )
 
     # 获取当前生效版本
@@ -971,8 +951,7 @@ async def submit_plan_feedback(
     current_revision = await memory_service.get_current_revision(session, plan_id)
     if not current_revision:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="未找到当前生效的行程版本"
+            status_code=status.HTTP_404_NOT_FOUND, detail="未找到当前生效的行程版本"
         )
 
     # 创建反馈记录
@@ -983,7 +962,7 @@ async def submit_plan_feedback(
         user_id=current_user.id,
         day_index=feedback.day_index,
         tags=feedback.tags,
-        raw_text=feedback.raw_text
+        raw_text=feedback.raw_text,
     )
     await session.commit()
 
@@ -994,14 +973,13 @@ async def submit_plan_feedback(
             feedback_id=feedback_record.id,
             revision_id=current_revision.id,
             revision_type="pending",
-            status="saved"
-        ).model_dump()
+            status="saved",
+        ).model_dump(),
     )
 
 
 async def _load_regenerate_context(
-    session: AsyncSession,
-    plan_id: str
+    session: AsyncSession, plan_id: str
 ) -> Tuple[PlanRevision, str, List[PlanFeedback]]:
     """
     加载重新生成所需的上下文：当前生效版本 + 聚合后的有效反馈。
@@ -1020,25 +998,21 @@ async def _load_regenerate_context(
     current_revision = await memory_service.get_current_revision(session, plan_id)
     if not current_revision:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="未找到当前生效的行程版本"
+            status_code=status.HTTP_404_NOT_FOUND, detail="未找到当前生效的行程版本"
         )
 
     # 聚合所有未撤回、未被替代的有效反馈
     aggregated_notes, feedbacks = await memory_service.aggregate_active_feedbacks(session, plan_id)
     if not aggregated_notes:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="暂无有效反馈，无法重新生成"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="暂无有效反馈，无法重新生成"
         )
 
     return current_revision, aggregated_notes, feedbacks
 
 
 def _build_revision_request(
-    plan: TripPlanDB,
-    current_revision: PlanRevision,
-    aggregated_notes: str
+    plan: TripPlanDB, current_revision: PlanRevision, aggregated_notes: str
 ) -> TripRequest:
     """
     反序列化原始规划请求，并注入本次重新生成的修改意见。
@@ -1065,7 +1039,7 @@ def _build_revision_request(
             start_date=plan_data.get("start_date", plan.start_date),
             end_date=plan_data.get("end_date", plan.end_date),
             transportation="公共交通",
-            accommodation="酒店"
+            accommodation="酒店",
         )
 
     revision_hint = f"【本次重新生成需要满足的修改意见】\n{aggregated_notes}"
@@ -1077,7 +1051,7 @@ def _build_revision_request(
 
 
 def _build_full_feedback_constraint(
-    feedbacks: List[PlanFeedback]
+    feedbacks: List[PlanFeedback],
 ) -> Tuple[StructuredFeedback, List[str]]:
     """
     根据反馈列表构造"强制完整重排"的结构化约束。
@@ -1104,7 +1078,7 @@ def _build_full_feedback_constraint(
         affected_days=sorted(affected_days),
         actions=[],
         preference_signals=[],
-        complexity="full"
+        complexity="full",
     )
     return force_full_feedback, feedback_tags
 
@@ -1114,7 +1088,7 @@ async def regenerate_plan(
     plan_id: str,
     plan: TripPlanDB = Depends(get_accessible_plan),
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     基于所有有效反馈重新生成完整行程。
@@ -1134,8 +1108,7 @@ async def regenerate_plan(
     # 接口侧通过 plan.status（任务开始后即变为 revising）拦截重复提交。
     if plan.status == "revising":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="行程正在修订中，请等待当前任务完成"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="行程正在修订中，请等待当前任务完成"
         )
 
     current_revision, aggregated_notes, feedbacks = await _load_regenerate_context(session, plan_id)
@@ -1159,17 +1132,13 @@ async def regenerate_plan(
         feedback_day_index=None,
         feedback_tags=feedback_tags,
         structured_feedback=force_full_feedback.model_dump(mode="json"),
-        source="regenerate"
+        source="regenerate",
     )
 
     return StandardResponse(
         success=True,
         message=f"已聚合 {len(feedbacks)} 条反馈，正在重新生成完整行程",
-        data={
-            "plan_id": plan_id,
-            "feedback_count": len(feedbacks),
-            "status": "revising"
-        }
+        data={"plan_id": plan_id, "feedback_count": len(feedbacks), "status": "revising"},
     )
 
 
@@ -1177,7 +1146,7 @@ async def regenerate_plan(
 async def list_revisions(
     plan_id: str,
     plan: TripPlanDB = Depends(get_accessible_plan),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     获取某行程计划的版本历史列表。
@@ -1205,18 +1174,20 @@ async def list_revisions(
             fb = fbs[0]
             raw_text = fb.raw_text or ""
             feedback_preview = (raw_text[:50] + "...") if len(raw_text) > 50 else raw_text
-        summaries.append(RevisionSummary(
-            revision_id=r.id,
-            version=r.version,
-            source=r.source,
-            created_at=r.created_at,
-            feedback_preview=feedback_preview
-        ))
+        summaries.append(
+            RevisionSummary(
+                revision_id=r.id,
+                version=r.version,
+                source=r.source,
+                created_at=r.created_at,
+                feedback_preview=feedback_preview,
+            )
+        )
 
     return StandardResponse(
         success=True,
         message="获取成功",
-        data={"plan_id": plan_id, "revisions": [s.model_dump() for s in summaries]}
+        data={"plan_id": plan_id, "revisions": [s.model_dump() for s in summaries]},
     )
 
 
@@ -1224,7 +1195,7 @@ async def list_revisions(
 async def list_feedback(
     plan_id: str,
     plan: TripPlanDB = Depends(get_accessible_plan),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     获取某行程计划下的有效反馈列表。
@@ -1240,21 +1211,23 @@ async def list_feedback(
                 structured = StructuredFeedback(**fb.structured_feedback)
             except Exception:
                 structured = None
-        records.append(FeedbackRecord(
-            feedback_id=fb.id,
-            day_index=fb.day_index,
-            tags=fb.tags,
-            raw_text=fb.raw_text,
-            structured_feedback=structured,
-            revision_type=fb.revision_type,
-            is_withdrawn=fb.is_withdrawn,
-            created_at=fb.created_at
-        ))
+        records.append(
+            FeedbackRecord(
+                feedback_id=fb.id,
+                day_index=fb.day_index,
+                tags=fb.tags,
+                raw_text=fb.raw_text,
+                structured_feedback=structured,
+                revision_type=fb.revision_type,
+                is_withdrawn=fb.is_withdrawn,
+                created_at=fb.created_at,
+            )
+        )
 
     return StandardResponse(
         success=True,
         message="获取成功",
-        data={"plan_id": plan_id, "feedbacks": [r.model_dump() for r in records]}
+        data={"plan_id": plan_id, "feedbacks": [r.model_dump() for r in records]},
     )
 
 
@@ -1263,7 +1236,7 @@ async def withdraw_plan_feedback(
     plan_id: str,
     feedback_id: int,
     plan: TripPlanDB = Depends(get_accessible_plan),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     撤回一条反馈。
@@ -1274,11 +1247,7 @@ async def withdraw_plan_feedback(
     await memory_service.withdraw_feedback(session, feedback_id)
     await session.commit()
 
-    return StandardResponse(
-        success=True,
-        message="反馈已撤回",
-        data={"feedback_id": feedback_id}
-    )
+    return StandardResponse(success=True, message="反馈已撤回", data={"feedback_id": feedback_id})
 
 
 @router.put("/{plan_id}/feedback/{feedback_id}", response_model=StandardResponse)
@@ -1287,7 +1256,7 @@ async def edit_plan_feedback(
     feedback_id: int,
     feedback: PlanFeedbackRequest,
     plan: TripPlanDB = Depends(get_accessible_plan),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     编辑一条反馈：旧记录标记为被替代，生成新反馈记录。
@@ -1297,8 +1266,7 @@ async def edit_plan_feedback(
     """
     if plan.status == "failed":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="行程生成失败，请重新发起规划"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="行程生成失败，请重新发起规划"
         )
 
     memory_service = MemoryService()
@@ -1307,14 +1275,14 @@ async def edit_plan_feedback(
         feedback_id=feedback_id,
         day_index=feedback.day_index,
         tags=feedback.tags,
-        raw_text=feedback.raw_text
+        raw_text=feedback.raw_text,
     )
     await session.commit()
 
     return StandardResponse(
         success=True,
         message="意见已更新，点'根据所有反馈重新生成行程'可统一处理",
-        data={"feedback_id": new_feedback.id, "old_feedback_id": feedback_id}
+        data={"feedback_id": new_feedback.id, "old_feedback_id": feedback_id},
     )
 
 
@@ -1332,16 +1300,16 @@ async def submit_legacy_feedback(
     return StandardResponse(
         success=True,
         message="反馈提交成功",
-        data={"plan_id": plan_id, "feedback": feedback.model_dump()}
+        data={"plan_id": plan_id, "feedback": feedback.model_dump()},
     )
 
 
 # ==================== 我的历史行程 ====================
 
+
 @router.get("/my/list", response_model=StandardResponse)
 async def list_my_plans(
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)
 ):
     """
     获取当前用户的历史行程列表（摘要信息，供个人中心展示）。
@@ -1368,22 +1336,20 @@ async def list_my_plans(
     for p in plans:
         plan_data = p.plan_data or {}
         budget = plan_data.get("budget") or {}
-        data.append({
-            "plan_id": p.id,
-            "city": p.city,
-            "start_date": p.start_date,
-            "end_date": p.end_date,
-            "travel_days": p.travel_days,
-            "status": p.status,
-            "budget_total": budget.get("total", 0) if isinstance(budget, dict) else 0,
-            "created_at": p.created_at.isoformat() if p.created_at else None
-        })
+        data.append(
+            {
+                "plan_id": p.id,
+                "city": p.city,
+                "start_date": p.start_date,
+                "end_date": p.end_date,
+                "travel_days": p.travel_days,
+                "status": p.status,
+                "budget_total": budget.get("total", 0) if isinstance(budget, dict) else 0,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+        )
 
-    return StandardResponse(
-        success=True,
-        message="获取成功",
-        data={"plans": data}
-    )
+    return StandardResponse(success=True, message="获取成功", data={"plans": data})
 
 
 # ==================== 对话式修改助手 ====================
@@ -1426,11 +1392,20 @@ def _build_plan_digest(plan_data: dict) -> str:
 
     for day in days:
         spots = "、".join([a.get("name", "?") for a in (day.get("attractions") or [])]) or "无"
-        meals = "、".join(
-            [f"{m.get('type','')}{m.get('name','')}" for m in (day.get("meals") or []) if m.get("name")]
-        ) or "无"
+        meals = (
+            "、".join(
+                [
+                    f"{m.get('type', '')}{m.get('name', '')}"
+                    for m in (day.get("meals") or [])
+                    if m.get("name")
+                ]
+            )
+            or "无"
+        )
         hotel = (day.get("hotel") or {}).get("name", "无")
-        lines.append(f"第{day.get('day_index', '?')}天：景点[{spots}]；餐饮[{meals}]；酒店[{hotel}]")
+        lines.append(
+            f"第{day.get('day_index', '?')}天：景点[{spots}]；餐饮[{meals}]；酒店[{hotel}]"
+        )
 
     if plan_data.get("overall_suggestions"):
         lines.append(f"整体建议：{plan_data['overall_suggestions']}")
@@ -1466,10 +1441,7 @@ def _parse_chat_llm_output(text: str) -> Optional[dict]:
 
 
 async def _load_chat_context(
-    session: AsyncSession,
-    plan_id: str,
-    plan: TripPlanDB,
-    chat: PlanChatRequest
+    session: AsyncSession, plan_id: str, plan: TripPlanDB, chat: PlanChatRequest
 ) -> Dict:
     """
     加载对话修改助手所需的上下文。
@@ -1500,8 +1472,7 @@ async def _load_chat_context(
 
     # 对话历史（只取最近 6 轮，且保证是 user/assistant 两种角色）
     history_lines = [
-        f"{('用户' if m.role == 'user' else '助手')}：{m.content}"
-        for m in chat.history[-6:]
+        f"{('用户' if m.role == 'user' else '助手')}：{m.content}" for m in chat.history[-6:]
     ]
     history_context = "\n".join(history_lines) if history_lines else "（无）"
 
@@ -1513,10 +1484,7 @@ async def _load_chat_context(
 
 
 async def _extract_chat_intent(
-    message: str,
-    plan_data: dict,
-    feedback_context: str,
-    history_context: str
+    message: str, plan_data: dict, feedback_context: str, history_context: str
 ) -> Dict:
     """
     调用 LLM 识别对话意图并提取结构化信息，失败时走关键词降级。
@@ -1542,10 +1510,12 @@ async def _extract_chat_intent(
     parsed: Optional[dict] = None
     try:
         llm = get_llm(temperature=0.3)
-        result = await llm.ainvoke([
-            {"role": "system", "content": CHAT_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ])
+        result = await llm.ainvoke(
+            [
+                {"role": "system", "content": CHAT_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ]
+        )
         parsed = _parse_chat_llm_output(getattr(result, "content", "") or "")
     except Exception as e:
         logger.exception(f"[chat_with_plan] LLM 调用失败: {e}")
@@ -1557,32 +1527,41 @@ async def _extract_chat_intent(
             "intent": parsed["intent"],
             "day_index": raw_day if isinstance(raw_day, int) and raw_day >= 1 else None,
             "tags": [str(t) for t in raw_tags if t][:4] if isinstance(raw_tags, list) else [],
-            "reply": str(parsed.get("reply") or "").strip()
+            "reply": str(parsed.get("reply") or "").strip(),
         }
 
     # 降级策略：JSON 解析失败时用关键词判断是否保存为整体意见
-    modify_keywords = ("换", "删", "去掉", "添加", "加个", "加一", "太贵", "太满", "太赶", "不喜欢", "不想", "改成")
+    modify_keywords = (
+        "换",
+        "删",
+        "去掉",
+        "添加",
+        "加个",
+        "加一",
+        "太贵",
+        "太满",
+        "太赶",
+        "不喜欢",
+        "不想",
+        "改成",
+    )
     if any(k in message for k in modify_keywords):
         return {
             "intent": "feedback",
             "day_index": None,
             "tags": ["其他"],
-            "reply": "已记录你的意见（本次未识别到具体天数，将作为整体调整参与下次重新生成）。你可以继续补充，或点下方按钮重新生成行程。"
+            "reply": "已记录你的意见（本次未识别到具体天数，将作为整体调整参与下次重新生成）。你可以继续补充，或点下方按钮重新生成行程。",
         }
     return {
         "intent": "question",
         "day_index": None,
         "tags": [],
-        "reply": "抱歉，我暂时没能理解这条消息。你可以试着描述想怎么修改行程，例如：'第二天太赶了，去掉一个景点'。"
+        "reply": "抱歉，我暂时没能理解这条消息。你可以试着描述想怎么修改行程，例如：'第二天太赶了，去掉一个景点'。",
     }
 
 
 async def _persist_chat_feedback(
-    session: AsyncSession,
-    plan_id: str,
-    user_id: int,
-    message: str,
-    intent_result: Dict
+    session: AsyncSession, plan_id: str, user_id: int, message: str, intent_result: Dict
 ) -> Tuple[Optional[int], bool]:
     """
     feedback 意图时把对话内容写入反馈表（与手动反馈同表，不触发重排）。
@@ -1613,7 +1592,7 @@ async def _persist_chat_feedback(
             user_id=user_id,
             day_index=intent_result.get("day_index"),
             tags=intent_result.get("tags") or [],
-            raw_text=message
+            raw_text=message,
         )
         await session.commit()
         return feedback_record.id, False
@@ -1629,7 +1608,7 @@ async def chat_with_plan(
     chat: PlanChatRequest,
     plan: TripPlanDB = Depends(get_accessible_plan),
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     对话式修改行程助手。
@@ -1663,12 +1642,12 @@ async def chat_with_plan(
     if plan.status == "revising":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="行程正在修订中，请等待当前任务完成后再使用修改助手"
+            detail="行程正在修订中，请等待当前任务完成后再使用修改助手",
         )
     if plan.status != "completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"行程当前状态为 {plan.status}，暂无法使用修改助手"
+            detail=f"行程当前状态为 {plan.status}，暂无法使用修改助手",
         )
 
     context = await _load_chat_context(session, plan_id, plan, chat)
@@ -1676,7 +1655,7 @@ async def chat_with_plan(
         message=chat.message,
         plan_data=context["plan_data"],
         feedback_context=context["feedback_context"],
-        history_context=context["history_context"]
+        history_context=context["history_context"],
     )
 
     feedback_id, persist_failed = await _persist_chat_feedback(
@@ -1684,7 +1663,7 @@ async def chat_with_plan(
         plan_id=plan_id,
         user_id=current_user.id,
         message=chat.message,
-        intent_result=intent
+        intent_result=intent,
     )
     if persist_failed:
         intent["reply"] = "（意见记录失败，请稍后重试或使用手动反馈表单）" + intent["reply"]
@@ -1702,6 +1681,6 @@ async def chat_with_plan(
             "day_index": intent["day_index"],
             "tags": intent["tags"],
             "feedback_id": feedback_id,
-            "pending_count": len(active_feedbacks)
-        }
+            "pending_count": len(active_feedbacks),
+        },
     )

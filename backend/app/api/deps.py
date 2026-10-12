@@ -14,16 +14,16 @@ FastAPI 依赖注入模块。
 """
 
 from typing import Optional
+
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.models.db_models import PlanCollaborator, TripPlanDB, User
 from app.services.auth_service import AuthService
-from app.models.db_models import User, TripPlanDB, PlanCollaborator
 from app.utils.security import decode_access_token
-
 
 # HTTP Bearer 认证方案，用于从请求头中提取 Authorization: Bearer <token>
 oauth2_scheme = HTTPBearer(auto_error=False)
@@ -31,7 +31,7 @@ oauth2_scheme = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ) -> User:
     """
     获取当前登录用户。
@@ -56,7 +56,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="未提供认证凭证",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     token = credentials.credentials
@@ -66,7 +66,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="认证凭证无效或已过期",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     user_id_str = payload.get("sub")
@@ -74,7 +74,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 负载无效",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     try:
@@ -83,7 +83,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 用户 ID 格式错误",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     user = await AuthService.get_user_by_id(session, user_id)
@@ -91,16 +91,14 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     return user
 
 
 async def get_owned_plan_for_user(
-    plan_id: str,
-    current_user: User,
-    session: AsyncSession
+    plan_id: str, current_user: User, session: AsyncSession
 ) -> TripPlanDB:
     """
     核心归属校验逻辑：按 plan_id 查询行程并校验属于 current_user。
@@ -121,17 +119,14 @@ async def get_owned_plan_for_user(
     """
     plan = await session.get(TripPlanDB, plan_id)
     if not plan or plan.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="行程计划不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="行程计划不存在")
     return plan
 
 
 async def get_owned_plan(
     plan_id: str,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ) -> TripPlanDB:
     """
     FastAPI 依赖：获取指定行程计划并校验归属权。
@@ -157,9 +152,7 @@ async def get_owned_plan(
 
 
 async def get_accessible_plan_for_user(
-    plan_id: str,
-    current_user: User,
-    session: AsyncSession
+    plan_id: str, current_user: User, session: AsyncSession
 ) -> TripPlanDB:
     """
     协作访问校验：所有者或协作者均可通过，返回行程计划记录。
@@ -184,10 +177,7 @@ async def get_accessible_plan_for_user(
     """
     plan = await session.get(TripPlanDB, plan_id)
     if plan is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="行程计划不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="行程计划不存在")
 
     # 所有者直接放行
     if plan.user_id == current_user.id:
@@ -196,22 +186,18 @@ async def get_accessible_plan_for_user(
     # 协作者：查协作记录表确认成员身份
     result = await session.execute(
         select(PlanCollaborator).where(
-            PlanCollaborator.plan_id == plan_id,
-            PlanCollaborator.user_id == current_user.id
+            PlanCollaborator.plan_id == plan_id, PlanCollaborator.user_id == current_user.id
         )
     )
     if result.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="行程计划不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="行程计划不存在")
     return plan
 
 
 async def get_accessible_plan(
     plan_id: str,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ) -> TripPlanDB:
     """
     FastAPI 依赖：获取指定行程计划并校验"所有者或协作者"访问权。

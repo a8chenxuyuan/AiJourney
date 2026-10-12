@@ -20,7 +20,6 @@ from typing import Any, Optional, Type, TypeVar
 from loguru import logger
 from pydantic import BaseModel, ValidationError
 
-
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -154,7 +153,9 @@ def parse_llm_json(text: str, model_class: Type[T]) -> Optional[T]:
             logger.error(f"[parse_llm_json] 兜底失败详情: {str(e)[:600]}")
 
     # 三种方式都失败，打印原始内容供调试
-    logger.error(f"[parse_llm_json] 解析失败，原始文本前 500 字符: {text[:500] if text else '(空)'}")
+    logger.error(
+        f"[parse_llm_json] 解析失败，原始文本前 500 字符: {text[:500] if text else '(空)'}"
+    )
 
     return None
 
@@ -174,9 +175,21 @@ def _replace_none_with_defaults(obj):
     这样模型再校验时就不会因为 LLM 输出 null 而失败。
     """
     NUMERIC_KEYS = (
-        "price", "cost", "rating", "amount", "lat", "lng",
-        "longitude", "latitude", "duration", "hours", "days",
-        "count", "score", "weight", "score",
+        "price",
+        "cost",
+        "rating",
+        "amount",
+        "lat",
+        "lng",
+        "longitude",
+        "latitude",
+        "duration",
+        "hours",
+        "days",
+        "count",
+        "score",
+        "weight",
+        "score",
     )
     if isinstance(obj, dict):
         cleaned = {}

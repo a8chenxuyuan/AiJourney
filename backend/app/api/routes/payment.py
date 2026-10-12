@@ -12,17 +12,17 @@ backend/app/api/routes/payment.py
 - SQLAlchemy：订单持久化
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.api.deps import get_current_user
-from app.models.db_models import User, Order
-from app.models.schemas import StandardResponse, PaymentCreateRequest
+from app.db.session import get_db
+from app.models.db_models import Order, User
+from app.models.schemas import PaymentCreateRequest, StandardResponse
 from app.services.payment_service import PaymentService
-
 
 router = APIRouter()
 
@@ -44,7 +44,7 @@ def _order_to_dict(order: Order) -> Dict[str, Any]:
         "status": order.status,
         "payment_method": order.payment_method,
         "created_at": order.created_at.isoformat() if order.created_at else None,
-        "paid_at": order.paid_at.isoformat() if order.paid_at else None
+        "paid_at": order.paid_at.isoformat() if order.paid_at else None,
     }
 
 
@@ -52,7 +52,7 @@ def _order_to_dict(order: Order) -> Dict[str, Any]:
 async def create_payment(
     request: PaymentCreateRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     创建支付订单。
@@ -66,23 +66,16 @@ async def create_payment(
         StandardResponse: 订单信息及支付参数。
     """
     order = await PaymentService.create_order(
-        session,
-        current_user.id,
-        request.plan_id,
-        request.amount,
-        request.payment_method
+        session, current_user.id, request.plan_id, request.amount, request.payment_method
     )
 
     if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="关联的行程计划不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="关联的行程计划不存在")
 
     return StandardResponse(
         success=True,
         message="订单创建成功",
-        data=PaymentService.to_payment_response(order).model_dump()
+        data=PaymentService.to_payment_response(order).model_dump(),
     )
 
 
@@ -90,7 +83,7 @@ async def create_payment(
 async def list_orders(
     plan_id: str,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     查询当前用户在指定行程下的订单列表。
@@ -113,9 +106,7 @@ async def list_orders(
     orders: List[Order] = list(result.scalars().all())
 
     return StandardResponse(
-        success=True,
-        message="查询成功",
-        data={"orders": [_order_to_dict(o) for o in orders]}
+        success=True, message="查询成功", data={"orders": [_order_to_dict(o) for o in orders]}
     )
 
 
@@ -123,7 +114,7 @@ async def list_orders(
 async def get_order(
     order_id: str,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     查询订单状态。
@@ -138,23 +129,18 @@ async def get_order(
     """
     order = await session.get(Order, order_id)
     if not order or order.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="订单不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
 
     return StandardResponse(
         success=True,
         message="查询成功",
-        data=PaymentService.to_payment_response(order).model_dump()
+        data=PaymentService.to_payment_response(order).model_dump(),
     )
 
 
 @router.post("/notify", response_model=StandardResponse)
 async def payment_notify(
-    order_id: str,
-    notify_data: Dict[str, Any],
-    session: AsyncSession = Depends(get_db)
+    order_id: str, notify_data: Dict[str, Any], session: AsyncSession = Depends(get_db)
 ):
     """
     支付回调通知接口（沙箱）。
@@ -175,13 +161,10 @@ async def payment_notify(
     """
     order = await PaymentService.process_payment_notification(session, order_id, notify_data)
     if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="订单不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
 
     return StandardResponse(
         success=True,
         message="支付状态更新成功",
-        data={"order_id": order.id, "status": order.status}
+        data={"order_id": order.id, "status": order.status},
     )

@@ -47,9 +47,7 @@ async def get_history(plan_id: str) -> List[Dict[str, Any]]:
     """
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            select(PlanLogDB)
-            .where(PlanLogDB.plan_id == plan_id)
-            .order_by(PlanLogDB.id)
+            select(PlanLogDB).where(PlanLogDB.plan_id == plan_id).order_by(PlanLogDB.id)
         )
         return [row.log_json for row in result.scalars().all()]
 

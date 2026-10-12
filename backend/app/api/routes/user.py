@@ -12,16 +12,14 @@ backend/app/api/routes/user.py
 - SQLAlchemy：异步查询
 """
 
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.api.deps import get_current_user
-from app.models.db_models import User, TripPlanDB, Favorite
+from app.db.session import get_db
+from app.models.db_models import Favorite, TripPlanDB, User
 from app.models.schemas import StandardResponse
-
 
 router = APIRouter()
 
@@ -30,7 +28,7 @@ router = APIRouter()
 async def get_user_profile(
     user_id: int,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     获取指定用户资料。
@@ -46,10 +44,7 @@ async def get_user_profile(
         StandardResponse: 用户资料。
     """
     if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="无权查看其他用户资料"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看其他用户资料")
 
     return StandardResponse(
         success=True,
@@ -58,8 +53,8 @@ async def get_user_profile(
             "id": current_user.id,
             "username": current_user.username,
             "email": current_user.email,
-            "created_at": current_user.created_at.isoformat()
-        }
+            "created_at": current_user.created_at.isoformat(),
+        },
     )
 
 
@@ -67,7 +62,7 @@ async def get_user_profile(
 async def get_user_plans(
     user_id: int,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     获取当前用户的历史行程列表。
@@ -81,10 +76,7 @@ async def get_user_plans(
         StandardResponse: 历史行程列表。
     """
     if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="无权查看其他用户行程"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看其他用户行程")
 
     result = await session.execute(
         select(TripPlanDB)
@@ -104,10 +96,10 @@ async def get_user_plans(
                 "end_date": plan.end_date,
                 "travel_days": plan.travel_days,
                 "status": plan.status,
-                "created_at": plan.created_at.isoformat()
+                "created_at": plan.created_at.isoformat(),
             }
             for plan in plans
-        ]
+        ],
     )
 
 
@@ -115,7 +107,7 @@ async def get_user_plans(
 async def get_user_favorites(
     user_id: int,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     获取当前用户的收藏列表。
@@ -129,10 +121,7 @@ async def get_user_favorites(
         StandardResponse: 收藏列表。
     """
     if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="无权查看其他用户收藏"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看其他用户收藏")
 
     result = await session.execute(
         select(Favorite).where(Favorite.user_id == user_id).order_by(Favorite.created_at.desc())
@@ -148,8 +137,8 @@ async def get_user_favorites(
                 "item_type": f.item_type,
                 "item_id": f.item_id,
                 "item_name": f.item_name,
-                "created_at": f.created_at.isoformat()
+                "created_at": f.created_at.isoformat(),
             }
             for f in favorites
-        ]
+        ],
     )

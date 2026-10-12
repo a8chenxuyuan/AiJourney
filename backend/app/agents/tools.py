@@ -24,13 +24,10 @@ import math
 from typing import Any, Dict, List, Optional
 
 from app.services.amap_service import AmapService
-from app.services.rag_service import RAGService
 
 
 async def search_attractions(
-    city: str,
-    keyword: str = "景点",
-    page_size: int = 10
+    city: str, keyword: str = "景点", page_size: int = 10
 ) -> List[Dict[str, Any]]:
     """
     【函数作用】根据关键词和城市搜索景点 POI。
@@ -74,9 +71,7 @@ async def search_attractions(
 
 
 async def search_hotels(
-    city: str,
-    keyword: str = "酒店",
-    page_size: int = 6
+    city: str, keyword: str = "酒店", page_size: int = 6
 ) -> List[Dict[str, Any]]:
     """
     【函数作用】根据城市搜索酒店 POI。
@@ -103,9 +98,7 @@ async def search_hotels(
 
 
 async def search_restaurants(
-    city: str,
-    keyword: str = "餐厅",
-    page_size: int = 15
+    city: str, keyword: str = "餐厅", page_size: int = 15
 ) -> List[Dict[str, Any]]:
     """
     【函数作用】根据城市搜索真实餐厅 POI。
@@ -175,11 +168,7 @@ async def get_weather(city: str) -> Dict[str, Any]:
     return await service.get_weather(city, forecast=True)
 
 
-async def plan_route(
-    origin: str,
-    destination: str,
-    mode: str = "driving"
-) -> Dict[str, Any]:
+async def plan_route(origin: str, destination: str, mode: str = "driving") -> Dict[str, Any]:
     """
     【函数作用】规划从起点到终点的路线。
 
@@ -212,11 +201,7 @@ async def plan_route(
     return await service.plan_route(origin, destination, mode)
 
 
-def search_rag_context(
-    query: str,
-    city: Optional[str] = None,
-    top_k: int = 5
-) -> str:
+def search_rag_context(query: str, city: Optional[str] = None, top_k: int = 5) -> str:
     """
     【函数作用】从 RAG 知识库检索城市攻略或景点背景。
 
@@ -244,6 +229,7 @@ def search_rag_context(
         # 使用全局单例：避免每次调用都新建 Qdrant 连接（远程不可用时白等 3 秒超时），
         # 同时保证内存模式下的缓存可以跨调用复用
         from app.services.rag_service import get_rag_service
+
         service = get_rag_service()
         # search 方法会用 SentenceTransformer 把 query 编码成向量
         # 然后在 Qdrant 中检索最相似的 top_k 个文档片段
@@ -255,20 +241,14 @@ def search_rag_context(
         # 将多个文档片段拼接成一段文本
         # 用 --- 分隔，方便 LLM 区分不同来源
         return "\n---\n".join(
-            f"[{i+1}] {r.get('title', '')}: {r.get('content', '')}"
-            for i, r in enumerate(results)
+            f"[{i + 1}] {r.get('title', '')}: {r.get('content', '')}" for i, r in enumerate(results)
         )
     except Exception:
         # 检索失败时返回空字符串，不影响主流程
         return ""
 
 
-def haversine_distance(
-    lon1: float,
-    lat1: float,
-    lon2: float,
-    lat2: float
-) -> float:
+def haversine_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     """
     【函数作用】使用 Haversine 公式计算两点间直线距离（米）。
 
@@ -304,8 +284,10 @@ def haversine_distance(
     delta_lambda = math.radians(lon2 - lon1)
 
     # Haversine 公式
-    a = math.sin(delta_phi / 2) ** 2 + \
-        math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    a = (
+        math.sin(delta_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return radius * c

@@ -68,9 +68,7 @@ class BaikeService:
         """获取或创建 httpx 异步客户端（follow_redirects 对齐 aiohttp GET 默认行为）。"""
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                headers=self.HEADERS,
-                timeout=self.TIMEOUT,
-                follow_redirects=True
+                headers=self.HEADERS, timeout=self.TIMEOUT, follow_redirects=True
             )
         return self._client
 
@@ -127,10 +125,7 @@ class BaikeService:
         return any(kw.lower() in text_lower for kw in query_keywords)
 
     async def search(
-        self,
-        query: str,
-        city: Optional[str] = None,
-        use_cache: bool = True
+        self, query: str, city: Optional[str] = None, use_cache: bool = True
     ) -> Dict[str, Any]:
         """
         搜索外部知识并返回摘要。
@@ -154,7 +149,7 @@ class BaikeService:
             "summary": "",
             "url": "",
             "source_type": "unknown",
-            "from_cache": False
+            "from_cache": False,
         }
 
         # 策略 1：百度百科
@@ -187,7 +182,9 @@ class BaikeService:
 
         return result
 
-    async def _search_baidu(self, query: str, city: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    async def _search_baidu(
+        self, query: str, city: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """通过百度百科搜索词条。"""
         client = await self._get_client()
         candidates = self._generate_item_name_candidates(query)
@@ -204,7 +201,9 @@ class BaikeService:
                         if summary and candidate in summary:
                             return {"title": query, "summary": summary, "url": str(response.url)}
                 except Exception as e:
-                    logger.warning(f"[BaikeService] 百度百科 {candidate} 失败 (尝试 {attempt+1}): {e}")
+                    logger.warning(
+                        f"[BaikeService] 百度百科 {candidate} 失败 (尝试 {attempt + 1}): {e}"
+                    )
                     await asyncio.sleep(0.5)
 
         return None
@@ -232,7 +231,9 @@ class BaikeService:
 
         return None
 
-    async def _search_bing(self, query: str, city: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    async def _search_bing(
+        self, query: str, city: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """通过必应搜索获取摘要。"""
         # 构造多个搜索查询变体，提高命中率
         queries = []
@@ -264,7 +265,7 @@ class BaikeService:
                             return item
 
                     except Exception as e:
-                        logger.warning(f"[BaikeService] 必应搜索失败 (尝试 {attempt+1}): {e}")
+                        logger.warning(f"[BaikeService] 必应搜索失败 (尝试 {attempt + 1}): {e}")
                         await asyncio.sleep(0.5)
 
                 # 变体间稍作间隔
@@ -335,10 +336,7 @@ class BaikeService:
         return text
 
     async def batch_search(
-        self,
-        queries: List[str],
-        city: Optional[str] = None,
-        use_cache: bool = True
+        self, queries: List[str], city: Optional[str] = None, use_cache: bool = True
     ) -> List[Dict[str, Any]]:
         """批量搜索外部知识。"""
         tasks = [self.search(q, city, use_cache) for q in queries]

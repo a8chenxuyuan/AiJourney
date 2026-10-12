@@ -53,9 +53,7 @@ async def startup(ctx: dict) -> None:
 
 
 if not settings.redis_url:
-    raise RuntimeError(
-        "REDIS_URL 未配置，Worker 无法启动；请在 backend/.env 中设置 REDIS_URL"
-    )
+    raise RuntimeError("REDIS_URL 未配置，Worker 无法启动；请在 backend/.env 中设置 REDIS_URL")
 
 # arq 默认连接超时仅 1 秒，本机环境偶发抖动会不够用，调大到 10 秒
 _redis_settings = RedisSettings.from_dsn(settings.redis_url)
@@ -76,7 +74,13 @@ class WorkerSettings:
       arq 默认 3600 秒才写一次，观测性差，这里改为 30 秒。
     """
 
-    functions = [run_planning_task, run_revision_task, run_recalculate_task, run_crawler_task, run_weather_check_task]
+    functions = [
+        run_planning_task,
+        run_revision_task,
+        run_recalculate_task,
+        run_crawler_task,
+        run_weather_check_task,
+    ]
     cron_jobs = [cron(run_weather_check_task, hour=8, minute=0)]
     redis_settings = _redis_settings
     max_jobs = 4

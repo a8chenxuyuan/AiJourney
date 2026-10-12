@@ -18,15 +18,11 @@ from app.api.deps import get_current_user
 from app.models.db_models import User
 from app.models.schemas import StandardResponse
 
-
 router = APIRouter()
 
 
 @router.get("/{poi_id}", response_model=StandardResponse)
-async def get_poi_detail(
-    poi_id: str,
-    current_user: User = Depends(get_current_user)
-):
+async def get_poi_detail(poi_id: str, current_user: User = Depends(get_current_user)):
     """
     查询 POI 详情。
 
@@ -47,8 +43,8 @@ async def get_poi_detail(
             "address": "示例地址",
             "description": "这是一个示例景点描述。",
             "rating": 4.5,
-            "ticket_price": 50.0
-        }
+            "ticket_price": 50.0,
+        },
     )
 
 
@@ -56,7 +52,7 @@ async def get_poi_detail(
 async def get_poi_photos(
     keyword: str = Query(..., description="搜索关键词"),
     page_size: int = Query(5, ge=1, le=20, description="返回数量"),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     景点图片搜索接口。
@@ -76,5 +72,5 @@ async def get_poi_photos(
         data=[
             {"url": f"https://example.com/photo_{i}.jpg", "source": "mock"}
             for i in range(page_size)
-        ]
+        ],
     )

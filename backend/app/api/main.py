@@ -19,10 +19,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes import agent, auth, collab, crawler, map, memory, payment, poi, rag, trip, user
 from app.config import settings
 from app.db.init_db import init_db
 from app.utils.logger import setup_logging
-from app.api.routes import auth, user, trip, agent, map, poi, rag, memory, crawler, payment, collab
 
 
 @asynccontextmanager
@@ -49,7 +49,7 @@ app = FastAPI(
     description="基于 LangGraph + MCP 的智能多智能体旅行规划助手",
     version="0.1.0",
     debug=settings.debug,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # 配置跨域资源共享（CORS）
@@ -59,7 +59,7 @@ app.add_middleware(
     allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 

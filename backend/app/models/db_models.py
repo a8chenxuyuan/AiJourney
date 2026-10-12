@@ -13,20 +13,19 @@ SQLAlchemy 数据库模型定义模块。
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, List
 
 from sqlalchemy import (
+    JSON,
+    Boolean,
     Column,
+    DateTime,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Float,
     Text,
-    Boolean,
-    DateTime,
-    ForeignKey,
-    JSON,
     UniqueConstraint,
-    func
+    func,
 )
 from sqlalchemy.orm import relationship
 
@@ -40,16 +39,23 @@ class PlanRevision(Base):
     存储同一 plan_id 下的多个行程版本，形成版本链。
     初始行程为 v1，每次用户反馈修改后生成新的 revision。
     """
+
     __tablename__ = "plan_revisions"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="版本 ID")
-    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="根计划 ID")
+    plan_id = Column(
+        String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="根计划 ID"
+    )
     version = Column(Integer, nullable=False, default=1, comment="版本号，从 1 开始递增")
-    parent_revision_id = Column(Integer, ForeignKey("plan_revisions.id"), nullable=True, index=True, comment="父版本 ID")
+    parent_revision_id = Column(
+        Integer, ForeignKey("plan_revisions.id"), nullable=True, index=True, comment="父版本 ID"
+    )
     trip_plan_json = Column(JSON, nullable=False, comment="该版本完整行程 JSON")
     is_current = Column(Boolean, default=False, comment="是否为当前生效版本")
     source = Column(String(32), default="initial", comment="来源：initial/patch/full")
-    diff_summary = Column(JSON, nullable=True, comment="本次修订的差异摘要（新增/删除/替换），由 finalize_node 计算")
+    diff_summary = Column(
+        JSON, nullable=True, comment="本次修订的差异摘要（新增/删除/替换），由 finalize_node 计算"
+    )
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
 
     plan = relationship("TripPlanDB", back_populates="revisions")
@@ -59,7 +65,7 @@ class PlanRevision(Base):
         foreign_keys="[PlanFeedback.revision_id]",
         back_populates="revision",
         cascade="all, delete-orphan",
-        lazy="selectin"
+        lazy="selectin",
     )
 
 
@@ -70,20 +76,41 @@ class PlanFeedback(Base):
     记录用户对某版本的反馈内容、结构化提取结果以及生成的修订版本。
     支持撤回（is_withdrawn）和编辑（通过新建记录并标记旧记录为 edited）。
     """
+
     __tablename__ = "plan_feedback"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="反馈 ID")
-    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="根计划 ID")
-    revision_id = Column(Integer, ForeignKey("plan_revisions.id"), nullable=False, index=True, comment="基于哪个版本提的反馈")
+    plan_id = Column(
+        String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="根计划 ID"
+    )
+    revision_id = Column(
+        Integer,
+        ForeignKey("plan_revisions.id"),
+        nullable=False,
+        index=True,
+        comment="基于哪个版本提的反馈",
+    )
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="用户 ID")
     day_index = Column(Integer, nullable=True, comment="针对第几天，null 表示全局")
     raw_text = Column(Text, nullable=False, comment="用户原始反馈文本")
     tags = Column(JSON, default=list, comment="快捷标签列表")
     structured_feedback = Column(JSON, default=dict, comment="FeedbackExtractor 提取的结构化约束")
     revision_type = Column(String(32), nullable=True, comment="实际采用的修订策略：patch/full")
-    accepted_revision_id = Column(Integer, ForeignKey("plan_revisions.id"), nullable=True, index=True, comment="生成的修订版本 ID")
+    accepted_revision_id = Column(
+        Integer,
+        ForeignKey("plan_revisions.id"),
+        nullable=True,
+        index=True,
+        comment="生成的修订版本 ID",
+    )
     is_withdrawn = Column(Boolean, default=False, comment="是否已撤回")
-    edited_by_feedback_id = Column(Integer, ForeignKey("plan_feedback.id"), nullable=True, index=True, comment="被哪个新反馈替代（编辑时）")
+    edited_by_feedback_id = Column(
+        Integer,
+        ForeignKey("plan_feedback.id"),
+        nullable=True,
+        index=True,
+        comment="被哪个新反馈替代（编辑时）",
+    )
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
 
     revision = relationship("PlanRevision", foreign_keys=[revision_id], back_populates="feedbacks")
@@ -98,11 +125,14 @@ class UserMemory(Base):
     记录用户对具体实体（景点、餐厅、酒店等）的好恶或特定场景经验。
     文本会同步写入 Qdrant 向量库，用于后续相似场景回忆。
     """
+
     __tablename__ = "user_memories"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="记忆 ID")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="用户 ID")
-    memory_type = Column(String(32), nullable=False, comment="记忆类型：attraction_like/restaurant_dislike/...")
+    memory_type = Column(
+        String(32), nullable=False, comment="记忆类型：attraction_like/restaurant_dislike/..."
+    )
     entity_name = Column(String(128), nullable=True, comment="实体名称，如景点/餐厅名")
     city = Column(String(64), nullable=True, comment="所属城市")
     sentiment = Column(String(16), nullable=False, comment="情感：positive/negative/neutral")
@@ -121,6 +151,7 @@ class User(Base):
 
     存储注册用户的基本信息和登录凭证。
     """
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="用户 ID")
@@ -132,7 +163,9 @@ class User(Base):
     # 关系：一个用户有多个行程计划
     trip_plans = relationship("TripPlanDB", back_populates="user", cascade="all, delete-orphan")
     # 关系：一个用户有一份偏好设置
-    preference = relationship("UserPreferenceDB", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    preference = relationship(
+        "UserPreferenceDB", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
     # 关系：一个用户有多个订单
     orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
     # 关系：一个用户有多条行程反馈
@@ -147,10 +180,13 @@ class TripPlanDB(Base):
 
     存储用户生成的旅行计划，plan_data 字段以 JSON 形式保存完整 TripPlan。
     """
+
     __tablename__ = "trip_plans"
 
     id = Column(String(64), primary_key=True, index=True, comment="计划 ID（UUID）")
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户 ID")
+    user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户 ID"
+    )
     city = Column(String(100), nullable=False, comment="目标城市")
     start_date = Column(String(20), nullable=False, comment="开始日期")
     end_date = Column(String(20), nullable=False, comment="结束日期")
@@ -159,17 +195,28 @@ class TripPlanDB(Base):
     request_data = Column(JSON, nullable=True, comment="原始请求 JSON，用于后续修订")
     cities_json = Column(JSON, nullable=True, comment="多城市联游 [{city, days}]，null 为单城")
     status = Column(String(20), default="pending", comment="状态：pending/completed/failed")
-    share_token = Column(String(64), unique=True, index=True, nullable=True, comment="分享令牌，非空表示开启分享")
+    share_token = Column(
+        String(64), unique=True, index=True, nullable=True, comment="分享令牌，非空表示开启分享"
+    )
     share_expires_at = Column(DateTime, nullable=True, comment="分享过期时间，NULL 表示永久有效")
-    share_view_count = Column(Integer, nullable=False, default=0, server_default="0", comment="分享页累计访问次数")
+    share_view_count = Column(
+        Integer, nullable=False, default=0, server_default="0", comment="分享页累计访问次数"
+    )
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), comment="更新时间")
 
     user = relationship("User", back_populates="trip_plans")
     # 关系：一个计划有多个版本 revision
-    revisions = relationship("PlanRevision", back_populates="plan", cascade="all, delete-orphan", order_by="PlanRevision.version")
+    revisions = relationship(
+        "PlanRevision",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="PlanRevision.version",
+    )
     # 关系：一个计划有多条反馈
-    plan_feedbacks = relationship("PlanFeedback", foreign_keys="[PlanFeedback.plan_id]", cascade="all, delete-orphan")
+    plan_feedbacks = relationship(
+        "PlanFeedback", foreign_keys="[PlanFeedback.plan_id]", cascade="all, delete-orphan"
+    )
 
 
 class UserPreferenceDB(Base):
@@ -178,6 +225,7 @@ class UserPreferenceDB(Base):
 
     存储用户长期偏好，用于个性化推荐。
     """
+
     __tablename__ = "user_preferences"
 
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, comment="用户 ID")
@@ -200,11 +248,14 @@ class Order(Base):
 
     存储用户发起的支付/预订订单，当前仅用于沙箱演示。
     """
+
     __tablename__ = "orders"
 
     id = Column(String(64), primary_key=True, index=True, comment="订单 ID")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="用户 ID")
-    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID")
+    plan_id = Column(
+        String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID"
+    )
     amount = Column(Float, nullable=False, comment="订单金额")
     status = Column(String(20), default="pending", comment="状态：pending/paid/cancelled/refunded")
     payment_method = Column(String(20), nullable=True, comment="支付方式")
@@ -221,6 +272,7 @@ class CrawledDocument(Base):
 
     存储爬虫抓取的原始文档内容，用于后续切分和向量化。
     """
+
     __tablename__ = "crawled_documents"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="文档 ID")
@@ -238,11 +290,14 @@ class Favorite(Base):
 
     存储用户收藏的景点、酒店、餐厅等。
     """
+
     __tablename__ = "favorites"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="收藏 ID")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="用户 ID")
-    city = Column(String(100), index=True, nullable=True, comment="收藏对象所属城市，用于按城市聚合推荐")
+    city = Column(
+        String(100), index=True, nullable=True, comment="收藏对象所属城市，用于按城市聚合推荐"
+    )
     item_type = Column(String(50), nullable=False, comment="收藏类型：attraction/hotel/restaurant")
     item_id = Column(String(100), nullable=False, comment="收藏对象 ID")
     item_name = Column(String(255), nullable=False, comment="收藏对象名称")
@@ -257,10 +312,13 @@ class PlanLogDB(Base):
     存储规划/修订任务中每个 Agent 节点的执行日志（含任务结束标记），
     供 SSE 接口跨进程读取：API 进程与 ARQ Worker 进程通过共享数据库交换日志。
     """
+
     __tablename__ = "plan_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="日志 ID，按写入顺序递增")
-    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID")
+    plan_id = Column(
+        String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID"
+    )
     log_json = Column(JSON, nullable=False, comment="日志内容（AgentLog 结构或 done 结束标记）")
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
 
@@ -273,15 +331,26 @@ class PlanNotification(Base):
     dedup_key 唯一约束保证同一事件（同一行程同一出发日期的天气提醒）不重复通知。
     由 init_db 的 create_all 自动建表，无需登记 _IDEMPOTENT_COLUMNS。
     """
+
     __tablename__ = "plan_notifications"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="通知 ID")
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户 ID")
-    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="关联行程计划 ID")
+    user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户 ID"
+    )
+    plan_id = Column(
+        String(64),
+        ForeignKey("trip_plans.id"),
+        nullable=False,
+        index=True,
+        comment="关联行程计划 ID",
+    )
     type = Column(String(32), nullable=False, comment="通知类型：weather/...")
     title = Column(String(128), nullable=False, comment="通知标题")
     content = Column(Text, nullable=False, comment="通知内容")
-    dedup_key = Column(String(96), unique=True, index=True, nullable=False, comment="去重键，防重复通知")
+    dedup_key = Column(
+        String(96), unique=True, index=True, nullable=False, comment="去重键，防重复通知"
+    )
     is_read = Column(Boolean, default=False, comment="是否已读")
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
 
@@ -296,14 +365,23 @@ class PlanCollaborator(Base):
     与 PlanNotification 一样为新增表，由 init_db 的 create_all 自动建表（含索引与唯一约束），
     无需登记 _IDEMPOTENT_COLUMNS。
     """
+
     __tablename__ = "plan_collaborators"
     # 联合唯一：防止同一用户通过重复使用邀请链接被重复加入
-    __table_args__ = (UniqueConstraint("plan_id", "user_id", name="uq_plan_collaborator_plan_user"),)
+    __table_args__ = (
+        UniqueConstraint("plan_id", "user_id", name="uq_plan_collaborator_plan_user"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="协作记录 ID")
-    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID")
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="协作者用户 ID")
-    role = Column(String(32), nullable=False, default="editor", comment="协作角色：editor（查看+提交反馈）")
+    plan_id = Column(
+        String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID"
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="协作者用户 ID"
+    )
+    role = Column(
+        String(32), nullable=False, default="editor", comment="协作角色：editor（查看+提交反馈）"
+    )
     created_at = Column(DateTime, default=func.now(), comment="加入时间")
 
 
@@ -316,18 +394,27 @@ class PlanInvite(Base):
     与 PlanNotification 一样为新增表，由 init_db 的 create_all 自动建表（含索引与唯一约束），
     无需登记 _IDEMPOTENT_COLUMNS。
     """
+
     __tablename__ = "plan_invites"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="邀请记录 ID")
-    plan_id = Column(String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID")
-    token = Column(String(64), unique=True, index=True, nullable=False, comment="邀请令牌（加入凭证）")
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False, comment="生成邀请的所有者用户 ID")
+    plan_id = Column(
+        String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID"
+    )
+    token = Column(
+        String(64), unique=True, index=True, nullable=False, comment="邀请令牌（加入凭证）"
+    )
+    created_by = Column(
+        Integer, ForeignKey("users.id"), nullable=False, comment="生成邀请的所有者用户 ID"
+    )
     expires_at = Column(
         DateTime,
         nullable=False,
         default=lambda: datetime.now() + timedelta(days=7),
-        comment="过期时间，默认生成后 7 天"
+        comment="过期时间，默认生成后 7 天",
     )
-    use_count = Column(Integer, nullable=False, default=0, server_default="0", comment="通过该链接成功加入的人次")
+    use_count = Column(
+        Integer, nullable=False, default=0, server_default="0", comment="通过该链接成功加入的人次"
+    )
     revoked = Column(Boolean, nullable=False, default=False, comment="是否已被所有者撤销")
     created_at = Column(DateTime, default=func.now(), comment="创建时间")

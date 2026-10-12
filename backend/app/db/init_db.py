@@ -15,7 +15,7 @@ backend/app/db/init_db.py
 
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncEngine
+
 from app.db.base import Base
 from app.db.session import engine
 

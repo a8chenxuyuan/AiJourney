@@ -13,26 +13,18 @@ backend/app/db/session.py
 - FastAPI：Depends 依赖注入
 """
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from app.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.config import settings
 
 # 创建异步数据库引擎
 # echo=False 表示不在控制台打印 SQL，生产环境建议关闭；开发调试可设为 True
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    future=True
-)
+engine = create_async_engine(settings.database_url, echo=settings.debug, future=True)
 
 # 创建异步会话工厂
 # expire_on_commit=False 避免提交后对象过期，便于后续继续访问关联属性
 AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
-    autocommit=False
+    bind=engine, class_=AsyncSession, expire_on_commit=False, autoflush=False, autocommit=False
 )
 
 

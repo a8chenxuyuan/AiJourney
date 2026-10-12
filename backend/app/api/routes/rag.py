@@ -15,18 +15,11 @@ backend/app/api/routes/rag.py
 """
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.api.deps import get_current_user
 from app.models.db_models import User
-from app.models.schemas import (
-    RAGUploadRequest,
-    RAGSearchRequest,
-    StandardResponse
-)
+from app.models.schemas import RAGSearchRequest, RAGUploadRequest, StandardResponse
 from app.services.rag_service import RAGService, get_rag_service
-
 
 router = APIRouter()
 
@@ -43,8 +36,7 @@ def _get_rag_service() -> RAGService:
 
 @router.post("/upload", response_model=StandardResponse)
 async def upload_document(
-    upload_request: RAGUploadRequest,
-    current_user: User = Depends(get_current_user)
+    upload_request: RAGUploadRequest, current_user: User = Depends(get_current_user)
 ):
     """
     上传文档到知识库。
@@ -61,20 +53,19 @@ async def upload_document(
     service = _get_rag_service()
     service.add_documents(
         documents=[{"title": upload_request.title, "content": upload_request.content}],
-        city=upload_request.city
+        city=upload_request.city,
     )
 
     return StandardResponse(
         success=True,
         message="文档上传成功",
-        data={"title": upload_request.title, "city": upload_request.city}
+        data={"title": upload_request.title, "city": upload_request.city},
     )
 
 
 @router.post("/search", response_model=StandardResponse)
 async def search_knowledge(
-    search_request: RAGSearchRequest,
-    current_user: User = Depends(get_current_user)
+    search_request: RAGSearchRequest, current_user: User = Depends(get_current_user)
 ):
     """
     检索知识库。
@@ -88,13 +79,9 @@ async def search_knowledge(
     """
     service = _get_rag_service()
     results = service.search(
-        query=search_request.query,
-        city=search_request.city,
-        top_k=search_request.top_k
+        query=search_request.query, city=search_request.city, top_k=search_request.top_k
     )
 
     return StandardResponse(
-        success=True,
-        message="检索成功",
-        data={"query": search_request.query, "results": results}
+        success=True, message="检索成功", data={"query": search_request.query, "results": results}
     )

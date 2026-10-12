@@ -28,10 +28,7 @@ from loguru import logger
 LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
 
 # 统一输出格式（不含颜色版）
-_LOG_FORMAT = (
-    "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | "
-    "{name}:{function}:{line} - {message}"
-)
+_LOG_FORMAT = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}"
 
 
 class InterceptHandler(logging.Handler):

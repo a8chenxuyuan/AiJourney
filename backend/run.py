@@ -13,6 +13,7 @@ backend/run.py
 """
 
 import uvicorn
+
 from app.config import settings
 
 
@@ -30,7 +31,7 @@ def main() -> None:
         "app.api.main:app",
         host="0.0.0.0",
         port=settings.port,
-        reload=False  # 关闭热重载，避免中断后台 Agent 任务
+        reload=False,  # 关闭热重载，避免中断后台 Agent 任务
     )
 
 

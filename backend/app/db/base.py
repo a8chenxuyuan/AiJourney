@@ -22,4 +22,5 @@ class Base(DeclarativeBase):
     所有数据库模型（User、TripPlanDB 等）都继承自此类。
     SQLAlchemy 会根据这些子类自动映射数据库表。
     """
+
     pass

@@ -15,27 +15,18 @@ backend/app/api/routes/auth.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
-from app.models.schemas import (
-    UserCreate,
-    UserLogin,
-    UserResponse,
-    StandardResponse
-)
-from app.models.db_models import User
 from app.api.deps import get_current_user
+from app.db.session import get_db
+from app.models.db_models import User
+from app.models.schemas import StandardResponse, UserCreate, UserLogin
 from app.services.auth_service import AuthService
-
 
 # 创建认证路由
 router = APIRouter()
 
 
 @router.post("/register", response_model=StandardResponse)
-async def register(
-    user_create: UserCreate,
-    session: AsyncSession = Depends(get_db)
-):
+async def register(user_create: UserCreate, session: AsyncSession = Depends(get_db)):
     """
     用户注册接口。
 
@@ -55,18 +46,12 @@ async def register(
     # 检查用户名是否已存在
     existing_user = await AuthService.get_user_by_username(session, user_create.username)
     if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户名已存在"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名已存在")
 
     # 检查邮箱是否已存在
     existing_email = await AuthService.get_user_by_email(session, user_create.email)
     if existing_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="邮箱已存在"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="邮箱已存在")
 
     # 创建用户
     new_user = await AuthService.create_user(session, user_create)
@@ -74,15 +59,12 @@ async def register(
     return StandardResponse(
         success=True,
         message="注册成功",
-        data={"user_id": new_user.id, "username": new_user.username}
+        data={"user_id": new_user.id, "username": new_user.username},
     )
 
 
 @router.post("/login", response_model=StandardResponse)
-async def login(
-    user_login: UserLogin,
-    session: AsyncSession = Depends(get_db)
-):
+async def login(user_login: UserLogin, session: AsyncSession = Depends(get_db)):
     """
     用户登录接口。
 
@@ -98,16 +80,9 @@ async def login(
     Returns:
         StandardResponse: 包含 access_token 和 user 的登录结果。
     """
-    user = await AuthService.authenticate_user(
-        session,
-        user_login.username,
-        user_login.password
-    )
+    user = await AuthService.authenticate_user(session, user_login.username, user_login.password)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
 
     access_token = AuthService.create_user_token(user)
 
@@ -117,8 +92,8 @@ async def login(
         data={
             "access_token": access_token,
             "token_type": "bearer",
-            "user": AuthService.to_user_response(user).model_dump()
-        }
+            "user": AuthService.to_user_response(user).model_dump(),
+        },
     )
 
 
@@ -136,5 +111,5 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return StandardResponse(
         success=True,
         message="获取成功",
-        data=AuthService.to_user_response(current_user).model_dump()
+        data=AuthService.to_user_response(current_user).model_dump(),
     )

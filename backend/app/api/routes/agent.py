@@ -13,24 +13,23 @@ Agent 执行过程路由模块。
 - LangGraph：Checkpointer、astream_events、interrupt
 """
 
-import json
 import asyncio
+import json
 import time
 from typing import AsyncGenerator, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db, AsyncSessionLocal
-from app.api.deps import get_owned_plan, get_owned_plan_for_user
 from app.agents.streaming import get_logs_after
-from app.models.db_models import User, TripPlanDB
-from app.models.schemas import StandardResponse, HumanDecisionRequest
+from app.api.deps import get_owned_plan, get_owned_plan_for_user
+from app.db.session import AsyncSessionLocal, get_db
+from app.models.db_models import TripPlanDB, User
+from app.models.schemas import HumanDecisionRequest, StandardResponse
 from app.utils.security import decode_access_token
-
 
 router = APIRouter()
 
@@ -43,8 +42,10 @@ _sse_bearer_scheme = HTTPBearer(auto_error=False)
 async def _get_current_user_for_sse(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_sse_bearer_scheme),
-    token: Optional[str] = Query(None, description="SSE 无法设置请求头时，可通过 URL 查询参数传入 JWT Token"),
-    session: AsyncSession = Depends(get_db)
+    token: Optional[str] = Query(
+        None, description="SSE 无法设置请求头时，可通过 URL 查询参数传入 JWT Token"
+    ),
+    session: AsyncSession = Depends(get_db),
 ) -> User:
     """
     为 SSE 接口获取当前用户。
@@ -76,7 +77,7 @@ async def _get_current_user_for_sse(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="未提供认证凭证",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     payload = decode_access_token(raw_token)
@@ -84,7 +85,7 @@ async def _get_current_user_for_sse(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="认证凭证无效或已过期",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     user_id_str = payload.get("sub")
@@ -92,7 +93,7 @@ async def _get_current_user_for_sse(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 负载无效",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     try:
@@ -101,7 +102,7 @@ async def _get_current_user_for_sse(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 用户 ID 格式错误",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     result = await session.execute(select(User).where(User.id == user_id))
@@ -110,7 +111,7 @@ async def _get_current_user_for_sse(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
     return user
 
@@ -118,7 +119,7 @@ async def _get_current_user_for_sse(
 async def _get_owned_plan_for_sse(
     plan_id: str,
     current_user: User = Depends(_get_current_user_for_sse),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ) -> TripPlanDB:
     """
     为 SSE 接口校验行程归属权。
@@ -130,9 +131,7 @@ async def _get_owned_plan_for_sse(
 
 
 @router.get("/trip/{plan_id}/stream")
-async def stream_agent_events(
-    plan: TripPlanDB = Depends(_get_owned_plan_for_sse)
-):
+async def stream_agent_events(plan: TripPlanDB = Depends(_get_owned_plan_for_sse)):
     """
     SSE 流式接口：实时推送 Agent 执行过程。
 
@@ -145,6 +144,7 @@ async def stream_agent_events(
     Returns:
         StreamingResponse: text/event-stream 格式的流式响应。
     """
+
     async def event_generator() -> AsyncGenerator[str, None]:
         """
         生成真实 SSE 事件。
@@ -159,9 +159,9 @@ async def stream_agent_events(
             yield f"data: {json.dumps({'status': final_status}, ensure_ascii=False)}\n\n"
             return
 
-        last_log_id = 0                      # 增量轮询游标：已推送的最大日志 ID
-        last_event_at = time.monotonic()     # 上次向前端发送事件的时间（心跳计时）
-        last_status_check = time.monotonic() # 上次兜底检查 plan 状态的时间
+        last_log_id = 0  # 增量轮询游标：已推送的最大日志 ID
+        last_event_at = time.monotonic()  # 上次向前端发送事件的时间（心跳计时）
+        last_status_check = time.monotonic()  # 上次兜底检查 plan 状态的时间
 
         while True:
             # 增量拉取新日志（首次轮询会取到全部历史日志，页面刷新重连时有用）
@@ -198,17 +198,13 @@ async def stream_agent_events(
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive"
-        }
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
 
 
 @router.post("/trip/{plan_id}/human_decision", response_model=StandardResponse)
 async def submit_human_decision(
-    decision: HumanDecisionRequest,
-    plan: TripPlanDB = Depends(get_owned_plan)
+    decision: HumanDecisionRequest, plan: TripPlanDB = Depends(get_owned_plan)
 ):
     """
     提交人机协同节点的用户决策。
@@ -227,5 +223,5 @@ async def submit_human_decision(
     return StandardResponse(
         success=True,
         message="决策已提交",
-        data={"plan_id": plan.id, "decision": decision.model_dump()}
+        data={"plan_id": plan.id, "decision": decision.model_dump()},
     )

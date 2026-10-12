@@ -13,12 +13,13 @@ Pydantic 数据模型定义模块。
 - Pydantic v2：数据模型、校验、序列化
 """
 
-from typing import List, Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 # ==================== 通用响应包装 ====================
+
 
 class StandardResponse(BaseModel):
     """
@@ -26,6 +27,7 @@ class StandardResponse(BaseModel):
 
     所有 API 接口成功或失败时都建议使用该结构包装，方便前端统一处理。
     """
+
     success: bool = Field(description="请求是否成功")
     message: str = Field(default="", description="提示信息")
     data: Optional[Any] = Field(default=None, description="响应数据")
@@ -33,10 +35,12 @@ class StandardResponse(BaseModel):
 
 # ==================== 用户相关模型 ====================
 
+
 class UserCreate(BaseModel):
     """
     用户注册请求模型。
     """
+
     username: str = Field(..., min_length=3, max_length=50, description="用户名")
     email: EmailStr = Field(..., description="邮箱地址")
     password: str = Field(..., min_length=6, description="密码，至少 6 位")
@@ -46,6 +50,7 @@ class UserLogin(BaseModel):
     """
     用户登录请求模型。
     """
+
     username: str = Field(..., description="用户名或邮箱")
     password: str = Field(..., description="密码")
 
@@ -56,6 +61,7 @@ class UserResponse(BaseModel):
 
     注意：响应中不包含 password_hash，避免泄露敏感信息。
     """
+
     id: int = Field(description="用户 ID")
     username: str = Field(description="用户名")
     email: str = Field(description="邮箱地址")
@@ -67,12 +73,14 @@ class UserResponse(BaseModel):
 
 # ==================== 地理位置模型 ====================
 
+
 class Location(BaseModel):
     """
     经纬度位置模型。
 
     用于景点、酒店、POI 等任何需要地图坐标的实体。
     """
+
     longitude: float = Field(..., description="经度")
     latitude: float = Field(..., description="纬度")
     address: Optional[str] = Field(default=None, description="详细地址")
@@ -80,12 +88,14 @@ class Location(BaseModel):
 
 # ==================== 旅行请求与行程模型 ====================
 
+
 class CityStay(BaseModel):
     """
     多城市联游中的单城市停留安排。
 
     cities 列表按出发顺序排列，每个元素表示在该城市停留的天数。
     """
+
     city: str = Field(..., description="城市名称")
     days: int = Field(default=1, ge=1, description="停留天数，至少 1 天")
 
@@ -96,17 +106,22 @@ class TripRequest(BaseModel):
 
     用户在前端填写表单后提交的数据结构。
     """
+
     city: str = Field(..., min_length=2, description="目标城市")
     start_date: str = Field(..., description="开始日期，格式 YYYY-MM-DD")
     end_date: str = Field(..., description="结束日期，格式 YYYY-MM-DD")
     transportation: str = Field(default="公共交通", description="交通方式偏好")
     accommodation: str = Field(default="酒店", description="住宿类型偏好")
-    preferences: List[str] = Field(default_factory=list, description="偏好标签，如 ['历史文化', '美食']")
+    preferences: List[str] = Field(
+        default_factory=list, description="偏好标签，如 ['历史文化', '美食']"
+    )
     must_visit: List[str] = Field(default_factory=list, description="必去景点列表")
     budget_level: str = Field(default="standard", description="预算等级：economy/standard/luxury")
     dietary_restrictions: List[str] = Field(default_factory=list, description="饮食禁忌")
     free_text_input: Optional[str] = Field(default=None, description="用户额外补充的自由文本")
-    cities: Optional[List[CityStay]] = Field(default=None, description="多城市联游：按出发顺序的城市与停留天数；单城可为 null")
+    cities: Optional[List[CityStay]] = Field(
+        default=None, description="多城市联游：按出发顺序的城市与停留天数；单城可为 null"
+    )
 
     @field_validator("end_date")
     def end_after_start(cls, end_date: str, info) -> str:
@@ -145,6 +160,7 @@ class Attraction(BaseModel):
     """
     景点模型。
     """
+
     id: Optional[str] = Field(default=None, description="景点唯一标识")
     name: str = Field(..., description="景点名称")
     location: Location = Field(..., description="景点位置")
@@ -164,6 +180,7 @@ class Hotel(BaseModel):
     """
     酒店模型。
     """
+
     id: Optional[str] = Field(default=None, description="酒店唯一标识")
     name: str = Field(..., description="酒店名称")
     location: Location = Field(..., description="酒店位置")
@@ -183,7 +200,10 @@ class Meal(BaseModel):
     当作为候选餐厅（FoodAgent 输出）时，type 可暂为 "restaurant"，
     由 PlannerAgent 根据餐次分配为 breakfast/lunch/dinner。
     """
-    type: str = Field(..., description="餐饮类型：breakfast/lunch/dinner，候选餐厅阶段可为 restaurant")
+
+    type: str = Field(
+        ..., description="餐饮类型：breakfast/lunch/dinner，候选餐厅阶段可为 restaurant"
+    )
     name: Optional[str] = Field(default=None, description="餐厅名称")
     cuisine: Optional[str] = Field(default=None, description="菜系")
     estimated_cost: Optional[float] = Field(default=None, description="预估人均消费")
@@ -209,6 +229,7 @@ class Meal(BaseModel):
             return float(value)
         if isinstance(value, str):
             import re
+
             numbers = re.findall(r"\d+(?:\.\d+)?", value)
             if numbers:
                 return float(numbers[0])
@@ -220,6 +241,7 @@ class WeatherInfo(BaseModel):
     """
     天气信息模型。
     """
+
     date: str = Field(..., description="日期")
     weather: str = Field(..., description="天气状况，如晴、多云、雨")
     temperature: Optional[str] = Field(default=None, description="温度范围")
@@ -234,6 +256,7 @@ class Budget(BaseModel):
     【注意】所有 float 字段必须 Optional，LLM 在生成 JSON 时经常把字段填成 null，
     Pydantic v2 默认严格模式会把 None 视为非法 float。
     """
+
     attractions: Optional[float] = Field(default=0.0, description="门票费用")
     meals: Optional[float] = Field(default=0.0, description="餐饮费用")
     hotels: Optional[float] = Field(default=0.0, description="住宿费用")
@@ -247,16 +270,23 @@ class DayPlan(BaseModel):
     """
     单日行程模型。
     """
+
     day_index: int = Field(..., description="第几天，从 1 开始")
     date: str = Field(..., description="日期")
     description: Optional[str] = Field(default=None, description="当日主题或概述")
-    city: Optional[str] = Field(default=None, description="当日所在城市，多城市联游时由 PlannerAgent 填写")
-    intercity_note: Optional[str] = Field(default=None, description="城际交通说明，如'上午高铁 杭州→苏州（约1.5小时）'，换城日填写")
+    city: Optional[str] = Field(
+        default=None, description="当日所在城市，多城市联游时由 PlannerAgent 填写"
+    )
+    intercity_note: Optional[str] = Field(
+        default=None, description="城际交通说明，如'上午高铁 杭州→苏州（约1.5小时）'，换城日填写"
+    )
     attractions: List[Attraction] = Field(default_factory=list, description="当日景点")
     meals: List[Meal] = Field(default_factory=list, description="当日餐饮")
     hotel: Optional[Hotel] = Field(default=None, description="当日推荐酒店")
     transportation: Optional[str] = Field(default=None, description="当日交通建议")
-    route_polyline: Optional[str] = Field(default=None, description="当天路线 polyline，用于地图画线")
+    route_polyline: Optional[str] = Field(
+        default=None, description="当天路线 polyline，用于地图画线"
+    )
     map_center: Optional[Location] = Field(default=None, description="地图中心点")
 
 
@@ -264,6 +294,7 @@ class TripPlan(BaseModel):
     """
     完整旅行计划模型。
     """
+
     plan_id: Optional[str] = Field(default=None, description="计划唯一 ID")
     user_id: Optional[int] = Field(default=None, description="所属用户 ID")
     city: str = Field(..., description="目标城市（多城联游时为首城市）")
@@ -275,13 +306,16 @@ class TripPlan(BaseModel):
     budget: Budget = Field(default_factory=Budget, description="预算统计")
     weather: List[WeatherInfo] = Field(default_factory=list, description="天气信息")
     style: Optional[str] = Field(default=None, description="方案风格：compact/relaxed/economy")
-    cities: Optional[List[CityStay]] = Field(default=None, description="多城市联游：按出发顺序的城市与停留天数；单城为 null")
+    cities: Optional[List[CityStay]] = Field(
+        default=None, description="多城市联游：按出发顺序的城市与停留天数；单城为 null"
+    )
 
 
 class TripPlanResponse(BaseModel):
     """
     旅行规划接口响应模型。
     """
+
     plan_id: str = Field(..., description="计划 ID")
     status: str = Field(..., description="状态：pending/completed/failed")
     plan: Optional[TripPlan] = Field(default=None, description="规划结果")
@@ -289,12 +323,14 @@ class TripPlanResponse(BaseModel):
 
 # ==================== Agent 内部模型 ====================
 
+
 class IntentAnalysis(BaseModel):
     """
     意图分析结果模型。
 
     IntentAgent 的输出，用于后续 Agent 决策。
     """
+
     city: str = Field(..., description="目标城市")
     start_date: str = Field(..., description="开始日期")
     end_date: str = Field(..., description="结束日期")
@@ -315,6 +351,7 @@ class AgentLog(BaseModel):
 
     用于前端实时展示每个 Agent 的执行过程。
     """
+
     step: str = Field(..., description="步骤名称")
     agent_name: str = Field(..., description="Agent 名称")
     input_preview: Optional[str] = Field(default=None, description="输入摘要")
@@ -328,6 +365,7 @@ class UserFeedback(BaseModel):
     """
     用户反馈模型。
     """
+
     plan_id: str = Field(..., description="行程计划 ID")
     overall_score: int = Field(..., ge=1, le=5, description="总体评分 1-5")
     tag_feedback: Dict[str, int] = Field(default_factory=dict, description="各维度评分")
@@ -337,11 +375,16 @@ class UserFeedback(BaseModel):
 
 # ==================== 行程反馈与版本迭代模型 ====================
 
+
 class StructuredFeedbackAction(BaseModel):
     """
     结构化反馈中的单个动作。
     """
-    type: str = Field(..., description="动作类型：replace_meal/add_attraction/remove_attraction/replace_hotel/change_pace/...")
+
+    type: str = Field(
+        ...,
+        description="动作类型：replace_meal/add_attraction/remove_attraction/replace_hotel/change_pace/...",
+    )
     day: Optional[int] = Field(default=None, description="目标天数")
     meal: Optional[str] = Field(default=None, description="餐次：breakfast/lunch/dinner")
     name: Optional[str] = Field(default=None, description="要添加或替换的实体名称")
@@ -354,10 +397,15 @@ class StructuredFeedback(BaseModel):
     """
     FeedbackExtractorAgent 输出结构。
     """
+
     scope: str = Field(default="day", description="影响范围：day/whole")
     affected_days: List[int] = Field(default_factory=list, description="受影响的天数列表")
-    actions: List[StructuredFeedbackAction] = Field(default_factory=list, description="具体修改动作")
-    preference_signals: List[Dict[str, Any]] = Field(default_factory=list, description="可泛化的偏好信号")
+    actions: List[StructuredFeedbackAction] = Field(
+        default_factory=list, description="具体修改动作"
+    )
+    preference_signals: List[Dict[str, Any]] = Field(
+        default_factory=list, description="可泛化的偏好信号"
+    )
     complexity: str = Field(default="patch", description="复杂度：patch/full")
 
 
@@ -365,6 +413,7 @@ class PlanFeedbackRequest(BaseModel):
     """
     提交行程修改反馈请求。
     """
+
     day_index: Optional[int] = Field(default=None, description="针对第几天，null 表示全局")
     tags: List[str] = Field(default_factory=list, description="快捷标签")
     raw_text: str = Field(..., min_length=1, description="用户反馈文本")
@@ -374,10 +423,13 @@ class PlanFeedbackResponse(BaseModel):
     """
     行程反馈提交响应。
     """
+
     feedback_id: int = Field(..., description="反馈 ID")
     revision_id: int = Field(..., description="基于的版本 ID")
     revision_type: str = Field(..., description="采用的修订策略：patch/full")
-    new_revision_id: Optional[int] = Field(default=None, description="生成的新版本 ID，若为异步生成可能为空")
+    new_revision_id: Optional[int] = Field(
+        default=None, description="生成的新版本 ID，若为异步生成可能为空"
+    )
     status: str = Field(..., description="状态：pending/completed/failed")
 
 
@@ -385,6 +437,7 @@ class RevisionSummary(BaseModel):
     """
     版本摘要。
     """
+
     revision_id: int = Field(..., description="版本 ID")
     version: int = Field(..., description="版本号")
     source: str = Field(..., description="来源：initial/patch/full")
@@ -396,11 +449,14 @@ class FeedbackRecord(BaseModel):
     """
     单条反馈记录。
     """
+
     feedback_id: int = Field(..., description="反馈 ID")
     day_index: Optional[int] = Field(default=None, description="针对第几天")
     tags: List[str] = Field(default_factory=list, description="标签")
     raw_text: str = Field(..., description="原始文本")
-    structured_feedback: Optional[StructuredFeedback] = Field(default=None, description="结构化提取结果")
+    structured_feedback: Optional[StructuredFeedback] = Field(
+        default=None, description="结构化提取结果"
+    )
     revision_type: Optional[str] = Field(default=None, description="实际采用的修订策略")
     is_withdrawn: bool = Field(default=False, description="是否已撤回")
     created_at: datetime = Field(..., description="创建时间")
@@ -411,10 +467,12 @@ class FeedbackRecord(BaseModel):
 
 # ==================== 请求体模型 ====================
 
+
 class HumanDecisionRequest(BaseModel):
     """
     人机协同决策请求模型。
     """
+
     decision_type: str = Field(..., description="决策类型，如 hotel_select")
     decision_value: Any = Field(..., description="用户选择的值")
 
@@ -425,6 +483,7 @@ class RecalculateRequest(BaseModel):
 
     用户调整景点顺序后，提交新的景点列表进行重算。
     """
+
     day_index: int = Field(..., description="第几天")
     attraction_ids: List[str] = Field(..., description="调整后的景点 ID 顺序")
 
@@ -433,6 +492,7 @@ class RAGUploadRequest(BaseModel):
     """
     知识库文档上传请求模型。
     """
+
     city: Optional[str] = Field(default=None, description="文档所属城市")
     title: str = Field(..., description="文档标题")
     content: str = Field(..., description="文档正文")
@@ -442,6 +502,7 @@ class RAGSearchRequest(BaseModel):
     """
     知识库检索请求模型。
     """
+
     query: str = Field(..., description="查询文本")
     city: Optional[str] = Field(default=None, description="限制城市")
     top_k: int = Field(default=5, description="返回条数")
@@ -451,6 +512,7 @@ class RAGSearchResponse(BaseModel):
     """
     知识库检索响应模型。
     """
+
     query: str = Field(..., description="查询文本")
     results: List[Dict[str, Any]] = Field(default_factory=list, description="检索结果列表")
 
@@ -459,6 +521,7 @@ class PaymentCreateRequest(BaseModel):
     """
     创建支付订单请求模型。
     """
+
     plan_id: str = Field(..., description="关联的行程计划 ID")
     amount: float = Field(..., gt=0, description="支付金额")
     payment_method: str = Field(default="alipay", description="支付方式")
@@ -468,6 +531,7 @@ class PaymentResponse(BaseModel):
     """
     支付订单响应模型。
     """
+
     order_id: str = Field(..., description="订单 ID")
     amount: float = Field(..., description="订单金额")
     status: str = Field(..., description="订单状态")
@@ -478,6 +542,7 @@ class CrawlerTriggerRequest(BaseModel):
     """
     触发爬虫请求模型。
     """
+
     cities: List[str] = Field(default_factory=list, description="要抓取的城市列表，为空则抓取全部")
     max_pages: Optional[int] = Field(default=None, description="最大抓取页面数")
 
@@ -486,6 +551,7 @@ class PlanChatMessage(BaseModel):
     """
     行程对话历史中的单条消息。
     """
+
     role: str = Field(..., description="角色：user / assistant")
     content: str = Field(..., description="消息内容")
 
@@ -498,8 +564,11 @@ class PlanChatRequest(BaseModel):
     - feedback：行程修改意见 → 提取结构化反馈并入库（不立即触发重排）；
     - question：行程相关咨询 → 基于行程上下文直接回答。
     """
+
     message: str = Field(..., min_length=1, description="用户本轮输入")
-    history: List[PlanChatMessage] = Field(default_factory=list, description="最近几轮对话历史（可空）")
+    history: List[PlanChatMessage] = Field(
+        default_factory=list, description="最近几轮对话历史（可空）"
+    )
 
 
 class ShareCreateRequest(BaseModel):
@@ -508,7 +577,10 @@ class ShareCreateRequest(BaseModel):
 
     为指定行程生成分享令牌，持有令牌的任何人可在有效期内只读查看行程。
     """
-    expires_days: Optional[int] = Field(default=7, ge=1, le=365, description="分享有效天数，1-365；不传默认 7 天")
+
+    expires_days: Optional[int] = Field(
+        default=7, ge=1, le=365, description="分享有效天数，1-365；不传默认 7 天"
+    )
 
 
 class ShareInfo(BaseModel):
@@ -517,6 +589,7 @@ class ShareInfo(BaseModel):
 
     token 用于拼接公开访问链接；expires_at 为空表示永久有效。
     """
+
     plan_id: str = Field(..., description="行程计划 ID")
     share_token: str = Field(..., description="分享令牌")
     share_path: str = Field(..., description="前端分享页路由路径，如 /share/xxx")
@@ -530,8 +603,11 @@ class FavoriteCreateRequest(BaseModel):
 
     收藏行程结果中的景点、酒店、餐厅等对象，item_data 保存完整快照供回显。
     """
+
     item_type: str = Field(..., description="收藏类型：attraction/hotel/restaurant")
-    item_id: str = Field(..., min_length=1, description="收藏对象唯一标识（如景点名/酒店名的 hash）")
+    item_id: str = Field(
+        ..., min_length=1, description="收藏对象唯一标识（如景点名/酒店名的 hash）"
+    )
     item_name: str = Field(..., min_length=1, description="收藏对象名称")
     city: Optional[str] = Field(None, description="所属城市，用于按城市聚合推荐")
     item_data: Optional[dict] = Field(None, description="收藏对象完整数据快照（JSON）")
@@ -543,6 +619,7 @@ class FavoriteOut(BaseModel):
 
     与 favorites 表字段对应，item_data 原样返回。
     """
+
     id: int = Field(..., description="收藏 ID")
     item_type: str = Field(..., description="收藏类型")
     item_id: str = Field(..., description="收藏对象标识")
@@ -554,6 +631,7 @@ class FavoriteOut(BaseModel):
 
 # ==================== 多人协作模型 ====================
 
+
 class CollaboratorOut(BaseModel):
     """
     行程成员信息响应。
@@ -561,6 +639,7 @@ class CollaboratorOut(BaseModel):
     所有者与协作者统一以成员形式返回：所有者 role=owner，
     协作者 role=editor（可查看行程、提交反馈）。
     """
+
     user_id: int = Field(..., description="用户 ID")
     username: str = Field(..., description="用户名")
     role: str = Field(..., description="成员角色：owner（所有者）/ editor（协作者）")
@@ -573,6 +652,7 @@ class InviteOut(BaseModel):
 
     token 用于拼接前端加入协作路由 /join/{token}。
     """
+
     plan_id: str = Field(..., description="行程计划 ID")
     token: str = Field(..., description="邀请令牌")
     invite_path: str = Field(..., description="前端加入协作路由路径，如 /join/xxx")
@@ -585,6 +665,7 @@ class CollaboratorJoinOut(BaseModel):
 
     前端据此跳转到对应行程的结果页。
     """
+
     plan_id: str = Field(..., description="加入的行程计划 ID")
     city: Optional[str] = Field(None, description="行程目的地城市")
     role: str = Field(default="editor", description="加入后的角色：owner（已是所有者）/ editor")

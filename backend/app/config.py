@@ -13,10 +13,11 @@ backend/app/config.py
 - python-dotenv：自动读取 .env 文件
 """
 
-from typing import List, Optional
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List, Optional
+
 from pydantic import Field, validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 项目根目录（backend 目录），用于定位 .env 文件
 _BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,19 +38,17 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True, description="是否开启调试模式")
     cors_origins: str = Field(
         default="http://localhost:5173,http://127.0.0.1:5173",
-        description="允许跨域的前端地址，逗号分隔"
+        description="允许跨域的前端地址，逗号分隔",
     )
 
     # ------------------- 数据库配置 -------------------
     database_url: str = Field(
-        default="sqlite+aiosqlite:///./agent1travel.db",
-        description="数据库连接 URL"
+        default="sqlite+aiosqlite:///./agent1travel.db", description="数据库连接 URL"
     )
 
     # ------------------- JWT 认证配置 -------------------
     jwt_secret_key: str = Field(
-        default="your-super-secret-jwt-key-change-this-in-production",
-        description="JWT 签名密钥"
+        default="your-super-secret-jwt-key-change-this-in-production", description="JWT 签名密钥"
     )
     jwt_algorithm: str = Field(default="HS256", description="JWT 签名算法")
     jwt_expire_minutes: int = Field(default=1440, description="JWT 过期时间（分钟）")
@@ -58,7 +57,7 @@ class Settings(BaseSettings):
     llm_api_key: str = Field(default="", description="百炼 API Key")
     llm_base_url: str = Field(
         default="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        description="OpenAI 兼容接口地址"
+        description="OpenAI 兼容接口地址",
     )
     llm_model_id: str = Field(default="qwen-max-latest", description="默认模型 ID")
     llm_temperature: float = Field(default=0.3, description="LLM 温度参数")
@@ -70,13 +69,9 @@ class Settings(BaseSettings):
 
     # ------------------- RAG / 向量库配置 -------------------
     qdrant_url: str = Field(default="http://localhost:6333", description="Qdrant 地址")
-    qdrant_collection: str = Field(
-        default="agent1travel_knowledge",
-        description="Qdrant 集合名称"
-    )
+    qdrant_collection: str = Field(default="agent1travel_knowledge", description="Qdrant 集合名称")
     embedding_model_name: str = Field(
-        default="BAAI/bge-large-zh-v1.5",
-        description="Embedding 模型名称"
+        default="BAAI/bge-large-zh-v1.5", description="Embedding 模型名称"
     )
     rag_top_k: int = Field(default=5, description="RAG 检索 Top-K")
 
@@ -85,10 +80,7 @@ class Settings(BaseSettings):
 
     # ------------------- 爬虫配置 -------------------
     crawler_enabled: bool = Field(default=False, description="是否启用定时爬虫")
-    crawler_schedule: str = Field(
-        default="0 3 * * 1",
-        description="爬虫定时 cron 表达式"
-    )
+    crawler_schedule: str = Field(default="0 3 * * 1", description="爬虫定时 cron 表达式")
     crawler_delay: int = Field(default=2, description="爬虫请求间隔（秒）")
     crawler_max_pages: int = Field(default=100, description="单次最大抓取页面数")
 
@@ -103,7 +95,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=str(_BASE_DIR / ".env"),
         env_file_encoding="utf-8",
-        extra="ignore"  # 忽略未定义的环境变量，避免启动失败
+        extra="ignore",  # 忽略未定义的环境变量，避免启动失败
     )
 
     @validator("cors_origins", pre=True)

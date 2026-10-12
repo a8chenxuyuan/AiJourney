@@ -13,17 +13,15 @@ backend/app/api/routes/crawler.py
 - arq：任务队列（入队 + Job 状态查询）
 """
 
-from typing import Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.api.deps import get_current_user
+from app.db.session import get_db
 from app.models.db_models import User
-from app.models.schemas import StandardResponse, CrawlerTriggerRequest
+from app.models.schemas import CrawlerTriggerRequest, StandardResponse
 from app.utils.queue import enqueue_crawler_task, get_job_status
-
 
 router = APIRouter()
 
@@ -32,7 +30,7 @@ router = APIRouter()
 async def trigger_crawler(
     trigger_request: CrawlerTriggerRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """
     手动触发爬虫任务（异步）。
@@ -49,22 +47,16 @@ async def trigger_crawler(
         StandardResponse: 任务 ID 与初始状态。
     """
     job_id = await enqueue_crawler_task(
-        cities=trigger_request.cities,
-        max_pages=trigger_request.max_pages
+        cities=trigger_request.cities, max_pages=trigger_request.max_pages
     )
 
     return StandardResponse(
-        success=True,
-        message="爬虫任务已入队",
-        data={"job_id": job_id, "status": "queued"}
+        success=True, message="爬虫任务已入队", data={"job_id": job_id, "status": "queued"}
     )
 
 
 @router.get("/status/{job_id}", response_model=StandardResponse)
-async def get_crawler_status(
-    job_id: str,
-    current_user: User = Depends(get_current_user)
-):
+async def get_crawler_status(job_id: str, current_user: User = Depends(get_current_user)):
     """
     查询爬虫任务状态与结果。
 
@@ -78,8 +70,4 @@ async def get_crawler_status(
     """
     status = await get_job_status(job_id)
 
-    return StandardResponse(
-        success=True,
-        message="查询成功",
-        data=status
-    )
+    return StandardResponse(success=True, message="查询成功", data=status)

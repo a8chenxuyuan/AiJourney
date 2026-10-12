@@ -15,13 +15,13 @@ backend/app/services/payment_service.py
 
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.db_models import Order, TripPlanDB
 from app.models.schemas import PaymentResponse
-from app.config import settings
 
 
 class PaymentService:
@@ -47,7 +47,7 @@ class PaymentService:
         user_id: int,
         plan_id: str,
         amount: float,
-        payment_method: str = "alipay"
+        payment_method: str = "alipay",
     ) -> Optional[Order]:
         """
         创建支付订单。
@@ -74,7 +74,7 @@ class PaymentService:
             amount=amount,
             status="pending",
             payment_method=payment_method,
-            third_party_order_id=f"SANDBOX_{uuid.uuid4().hex[:12].upper()}"
+            third_party_order_id=f"SANDBOX_{uuid.uuid4().hex[:12].upper()}",
         )
         session.add(order)
         await session.flush()
@@ -98,16 +98,14 @@ class PaymentService:
                 "order_id": order.id,
                 "amount": order.amount,
                 "payment_method": order.payment_method,
-                "mock_pay_url": f"/api/payment/{order.id}/mock_pay"
+                "mock_pay_url": f"/api/payment/{order.id}/mock_pay",
             }
         # TODO: 接入真实支付宝/微信支付 SDK
         return {}
 
     @staticmethod
     async def process_payment_notification(
-        session: AsyncSession,
-        order_id: str,
-        third_party_data: Dict[str, Any]
+        session: AsyncSession, order_id: str, third_party_data: Dict[str, Any]
     ) -> Optional[Order]:
         """
         处理支付回调通知。
@@ -148,5 +146,5 @@ class PaymentService:
             order_id=order.id,
             amount=order.amount,
             status=order.status,
-            payment_params=PaymentService.build_payment_params(order)
+            payment_params=PaymentService.build_payment_params(order),
         )

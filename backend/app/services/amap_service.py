@@ -16,8 +16,7 @@ backend/app/services/amap_service.py
   - 路径规划 /v3/direction/{driving|walking|transit|riding}
 """
 
-import asyncio
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -72,11 +71,7 @@ class AmapService:
         return data
 
     async def search_poi(
-        self,
-        keyword: str,
-        city: str,
-        page_size: int = 10,
-        poi_type: Optional[str] = None
+        self, keyword: str, city: str, page_size: int = 10, poi_type: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         根据关键词和城市搜索 POI（兴趣点）。
@@ -112,22 +107,24 @@ class AmapService:
             # 解析图片列表，高德返回的 photos 可能是 [{"url": "..."}] 或字符串列表
             photos = self._parse_photos(poi.get("photos", []))
 
-            results.append({
-                "id": poi.get("id"),
-                "name": poi.get("name", "").strip(),
-                "address": poi.get("address", "").strip() or None,
-                "location": {
-                    "longitude": longitude,
-                    "latitude": latitude,
-                },
-                "type": poi.get("type", ""),
-                "typecode": poi.get("typecode", ""),
-                "tel": self._parse_tel(poi.get("tel")),
-                "rating": self._parse_rating(poi.get("biz_ext", {}).get("rating")),
-                "business_hours": poi.get("business_area") or None,
-                "photos": photos,
-                "image_url": photos[0] if photos else None,
-            })
+            results.append(
+                {
+                    "id": poi.get("id"),
+                    "name": poi.get("name", "").strip(),
+                    "address": poi.get("address", "").strip() or None,
+                    "location": {
+                        "longitude": longitude,
+                        "latitude": latitude,
+                    },
+                    "type": poi.get("type", ""),
+                    "typecode": poi.get("typecode", ""),
+                    "tel": self._parse_tel(poi.get("tel")),
+                    "rating": self._parse_rating(poi.get("biz_ext", {}).get("rating")),
+                    "business_hours": poi.get("business_area") or None,
+                    "photos": photos,
+                    "image_url": photos[0] if photos else None,
+                }
+            )
 
         return results
 
@@ -191,10 +188,7 @@ class AmapService:
         }
 
     async def plan_route(
-        self,
-        origin: str,
-        destination: str,
-        mode: str = "driving"
+        self, origin: str, destination: str, mode: str = "driving"
     ) -> Dict[str, Any]:
         """
         规划从起点到终点的路线。
@@ -287,7 +281,6 @@ class AmapService:
         if value is None:
             return None
         return str(value).strip() or None
-
 
     @staticmethod
     def _parse_rating(value: Any) -> Optional[float]:

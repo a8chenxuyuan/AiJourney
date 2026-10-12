@@ -39,38 +39,37 @@ import asyncio
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
-from loguru import logger
-
 from langgraph.graph import END, START, StateGraph
+from loguru import logger
 
 # 导入所有 Agent 节点函数
 # 每个节点函数接收状态，返回状态更新字典
 from app.agents.nodes import (
-    attraction_agent_node,      # 景点检索 Agent
-    budget_agent_node,          # 预算统计 Agent
-    feedback_extractor_node,    # 反馈意图提取 Agent
-    finalize_node,              # 收尾节点（保存到数据库）
-    food_agent_node,            # 餐厅搜索 Agent
-    hotel_agent_node,           # 酒店推荐 Agent
-    human_in_the_loop_node,     # 人机协同节点
-    intent_agent_node,          # 意图理解 Agent
-    patch_plan_node,            # 行程局部修改 Agent
-    planner_agent_node,         # 行程规划 Agent（核心）
-    rag_agent_node,             # 知识检索 Agent
-    route_agent_node,           # 路线规划 Agent
-    weather_agent_node,         # 天气查询 Agent
+    attraction_agent_node,  # 景点检索 Agent
+    budget_agent_node,  # 预算统计 Agent
+    feedback_extractor_node,  # 反馈意图提取 Agent
+    finalize_node,  # 收尾节点（保存到数据库）
+    food_agent_node,  # 餐厅搜索 Agent
+    hotel_agent_node,  # 酒店推荐 Agent
+    human_in_the_loop_node,  # 人机协同节点
+    intent_agent_node,  # 意图理解 Agent
+    patch_plan_node,  # 行程局部修改 Agent
+    planner_agent_node,  # 行程规划 Agent（核心）
+    rag_agent_node,  # 知识检索 Agent
+    route_agent_node,  # 路线规划 Agent
+    weather_agent_node,  # 天气查询 Agent
 )
 from app.agents.state import TravelPlanningState
 from app.agents.streaming import (
     mark_done,
     put_log,
 )
+
 # 多城联游的城际大交通计算复用路线 Agent 的高德方向 API 与 Haversine 估算
 from app.agents.tools import haversine_distance, plan_route
 from app.db.session import AsyncSessionLocal
 from app.models.db_models import TripPlanDB
 from app.models.schemas import AgentLog, Attraction, TripPlan, TripRequest
-
 
 # 节点函数类型：接收状态，返回状态更新字典
 NodeFunc = Callable[[TravelPlanningState], Awaitable[Dict[str, Any]]]
@@ -249,7 +248,9 @@ async def _merge_update(state: TravelPlanningState, update: Dict[str, Any]) -> N
             state[key] = value
 
 
-async def _run_node(plan_id: str, state: TravelPlanningState, step_name: str, node_func: NodeFunc) -> Dict[str, Any]:
+async def _run_node(
+    plan_id: str, state: TravelPlanningState, step_name: str, node_func: NodeFunc
+) -> Dict[str, Any]:
     """
     执行单个节点并把它产生的日志实时推送到 SSE，返回更新字典。
 
@@ -274,9 +275,7 @@ async def _run_node(plan_id: str, state: TravelPlanningState, step_name: str, no
 
 
 async def _run_batches(
-    plan_id: str,
-    state: TravelPlanningState,
-    batches: List[List[Tuple[str, NodeFunc]]]
+    plan_id: str, state: TravelPlanningState, batches: List[List[Tuple[str, NodeFunc]]]
 ) -> None:
     """
     按批次执行节点编排：批内节点并发执行（asyncio.gather），批间顺序执行。
@@ -365,12 +364,7 @@ async def split_cities_node(state: TravelPlanningState) -> Dict[str, Any]:
         input_preview=f"city={state['request'].city}, cities={getattr(state['request'], 'cities', None)}",
         output_preview=f"cities={cities}, city_days={city_days}",
     )
-    return {
-        "cities": cities,
-        "city_days": city_days,
-        "logs": [log],
-        "current_step": "split_cities"
-    }
+    return {"cities": cities, "city_days": city_days, "logs": [log], "current_step": "split_cities"}
 
 
 def _build_city_scoped_state(state: TravelPlanningState, city: str) -> TravelPlanningState:
@@ -457,7 +451,7 @@ async def city_gather_node(state: TravelPlanningState) -> Dict[str, Any]:
             _run_node(plan_id, scoped, f"hotel_agent{suffix}", hotel_agent_node),
             _run_node(plan_id, scoped, f"food_agent{suffix}", food_agent_node),
             _run_node(plan_id, scoped, f"rag_agent{suffix}", rag_agent_node),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
     city_updates = await asyncio.gather(*(_collect_for_city(city) for city in cities))
@@ -504,11 +498,13 @@ async def city_gather_node(state: TravelPlanningState) -> Dict[str, Any]:
         "weather": weather_by_city.get(primary, []),
         "rag_context": rag_by_city.get(primary, ""),
         "logs": all_logs,
-        "current_step": "city_gather"
+        "current_step": "city_gather",
     }
 
 
-def _city_representative_point(state: TravelPlanningState, city: str) -> Optional[Tuple[float, float]]:
+def _city_representative_point(
+    state: TravelPlanningState, city: str
+) -> Optional[Tuple[float, float]]:
     """
     取某城市的代表坐标（该城候选景点的几何中心），用于城际大交通估算。
 
@@ -553,7 +549,9 @@ def _build_intercity_advice(from_city: str, to_city: str, distance_m: float) -> 
     return f"{from_city}→{to_city}：暂无路线数据，建议提前查询高铁/长途交通班次。"
 
 
-async def _compute_one_intercity_leg(state: TravelPlanningState, from_city: str, to_city: str) -> Dict[str, Any]:
+async def _compute_one_intercity_leg(
+    state: TravelPlanningState, from_city: str, to_city: str
+) -> Dict[str, Any]:
     """
     计算一对相邻城市间的大交通信息（绝不抛异常）。
 
@@ -576,14 +574,14 @@ async def _compute_one_intercity_leg(state: TravelPlanningState, from_city: str,
     if origin_pt and dest_pt:
         try:
             route_info = await plan_route(
-                f"{origin_pt[0]},{origin_pt[1]}",
-                f"{dest_pt[0]},{dest_pt[1]}",
-                "driving"
+                f"{origin_pt[0]},{origin_pt[1]}", f"{dest_pt[0]},{dest_pt[1]}", "driving"
             )
             distance_m = float(route_info.get("distance") or 0)
         except Exception as exc:
             # 高德 API 失败时静默退化为 Haversine 估算，不中断规划
-            logger.warning(f"[RouteMulti] 城际方向 API 失败（{from_city}→{to_city}），退化 Haversine: {exc}")
+            logger.warning(
+                f"[RouteMulti] 城际方向 API 失败（{from_city}→{to_city}），退化 Haversine: {exc}"
+            )
 
         if not distance_m:
             distance_m = haversine_distance(origin_pt[0], origin_pt[1], dest_pt[0], dest_pt[1])
@@ -596,7 +594,7 @@ async def _compute_one_intercity_leg(state: TravelPlanningState, from_city: str,
         "to_city": to_city,
         "distance_m": round(distance_m, 1),
         "duration_s": int(hours * 3600),
-        "advice": advice
+        "advice": advice,
     }
 
 
@@ -645,25 +643,24 @@ async def route_multi_node(state: TravelPlanningState) -> Dict[str, Any]:
         step="route_multi",
         agent_name="MultiCityRouter",
         output_preview=(
-            f"逐城路线矩阵 {len(route_matrix_by_city)} 份，"
-            f"城际大交通 {len(intercity_legs)} 段"
+            f"逐城路线矩阵 {len(route_matrix_by_city)} 份，城际大交通 {len(intercity_legs)} 段"
         ),
-        tool_calls=[{"tool": "intercity_leg", **{k: leg[k] for k in ("from_city", "to_city", "distance_m")}}
-                    for leg in intercity_legs],
+        tool_calls=[
+            {"tool": "intercity_leg", **{k: leg[k] for k in ("from_city", "to_city", "distance_m")}}
+            for leg in intercity_legs
+        ],
     )
     return {
         "route_matrix": route_matrix_by_city.get(cities[0], {}),
         "route_matrix_by_city": route_matrix_by_city,
         "intercity_legs": intercity_legs,
         "logs": all_logs + [log],
-        "current_step": "route_multi"
+        "current_step": "route_multi",
     }
 
 
 async def run_planning_graph(
-    plan_id: str,
-    request: TripRequest,
-    user_id: int
+    plan_id: str, request: TripRequest, user_id: int
 ) -> Optional[TripPlan]:
     """
     【函数作用】启动旅行规划 LangGraph 工作流。
@@ -696,52 +693,46 @@ async def run_planning_graph(
     # 每个节点会读取自己需要的字段，写入自己的产出
     state: TravelPlanningState = {
         # 任务标识
-        "plan_id": plan_id,          # 行程 ID
-        "user_id": user_id,          # 用户 ID
-
+        "plan_id": plan_id,  # 行程 ID
+        "user_id": user_id,  # 用户 ID
         # 用户输入（这是流程的起点）
-        "request": request,          # 前端提交的表单数据
-
+        "request": request,  # 前端提交的表单数据
         # 中间产物（初始为空，由各节点逐步填充）
-        "intent_analysis": None,     # IntentAgent 输出
-        "attractions": [],           # 候选景点列表
-        "hotels": [],                # 候选酒店列表
-        "restaurants": [],           # 候选餐厅列表
-        "weather": [],               # 每日天气信息
-        "route_matrix": {},          # 景点间路线矩阵
-        "rag_context": "",           # RAG 检索上下文
-
+        "intent_analysis": None,  # IntentAgent 输出
+        "attractions": [],  # 候选景点列表
+        "hotels": [],  # 候选酒店列表
+        "restaurants": [],  # 候选餐厅列表
+        "weather": [],  # 每日天气信息
+        "route_matrix": {},  # 景点间路线矩阵
+        "rag_context": "",  # RAG 检索上下文
         # 多城联游中间产物（单城时 cities=[city]，*_by_city 只有一个键）
-        "cities": [],                          # 有序城市列表（split_cities_node 写入）
-        "city_days": {},                       # 城市 → 停留天数
-        "attractions_by_city": {},             # 城市 → 候选景点
-        "hotels_by_city": {},                  # 城市 → 候选酒店
-        "restaurants_by_city": {},             # 城市 → 候选餐厅
-        "weather_by_city": {},                 # 城市 → 每日天气
-        "rag_by_city": {},                     # 城市 → RAG 上下文
-        "route_matrix_by_city": {},            # 城市 → 路线矩阵
-        "intercity_legs": [],                  # 相邻城市大交通（多城时非空）
-
+        "cities": [],  # 有序城市列表（split_cities_node 写入）
+        "city_days": {},  # 城市 → 停留天数
+        "attractions_by_city": {},  # 城市 → 候选景点
+        "hotels_by_city": {},  # 城市 → 候选酒店
+        "restaurants_by_city": {},  # 城市 → 候选餐厅
+        "weather_by_city": {},  # 城市 → 每日天气
+        "rag_by_city": {},  # 城市 → RAG 上下文
+        "route_matrix_by_city": {},  # 城市 → 路线矩阵
+        "intercity_legs": [],  # 相邻城市大交通（多城时非空）
         # 规划输出（初始为空）
-        "candidate_plans": [],       # 候选方案列表
-        "selected_plan_index": 0,    # 选中的方案索引
-        "final_plan": None,          # 最终行程计划
-
+        "candidate_plans": [],  # 候选方案列表
+        "selected_plan_index": 0,  # 选中的方案索引
+        "final_plan": None,  # 最终行程计划
         # 控制与日志
-        "messages": [],              # LLM 消息上下文
-        "current_step": "start",     # 当前步骤名称
-        "logs": [],                  # 执行日志（追加）
-        "error": None,               # 错误信息
-        "human_decisions": {},       # 人机协同决策
-
+        "messages": [],  # LLM 消息上下文
+        "current_step": "start",  # 当前步骤名称
+        "logs": [],  # 执行日志（追加）
+        "error": None,  # 错误信息
+        "human_decisions": {},  # 人机协同决策
         # 修订专用字段（初始规划时不用）
-        "previous_plan": None,       # 无上游版本
-        "revision_notes": "",        # 无修订说明
-        "structured_feedback": None, # 无结构化反馈
+        "previous_plan": None,  # 无上游版本
+        "revision_notes": "",  # 无修订说明
+        "structured_feedback": None,  # 无结构化反馈
         "revision_type": "initial",  # 初始规划
         "parent_revision_id": None,  # 无父版本
         "feedback_day_index": None,  # 无反馈天数
-        "feedback_tags": []          # 无反馈标签
+        "feedback_tags": [],  # 无反馈标签
     }
 
     # 节点编排（批次结构）：
@@ -769,7 +760,9 @@ async def run_planning_graph(
 
         # ==================== 步骤 3：提取结果 ====================
         # 从最终状态中提取 final_plan（最终行程）
-        logger.info(f"[Manual Graph] 全部节点执行完成，final_plan={state.get('final_plan') is not None}")
+        logger.info(
+            f"[Manual Graph] 全部节点执行完成，final_plan={state.get('final_plan') is not None}"
+        )
         # 推送完成标记到日志表，SSE 据此结束推送
         await mark_done(plan_id, "completed")
         return state.get("final_plan")
@@ -804,7 +797,7 @@ async def run_revision_graph(
     revision_notes: str,
     feedback_day_index: Optional[int] = None,
     feedback_tags: Optional[List[str]] = None,
-    structured_feedback: Optional[Any] = None
+    structured_feedback: Optional[Any] = None,
 ) -> Optional[Tuple[TripPlan, Dict[str, Any]]]:
     """
     【函数作用】启动行程修订工作流。
@@ -859,10 +852,12 @@ async def run_revision_graph(
         "previous_plan": previous_plan,
         "revision_notes": revision_notes,
         "structured_feedback": structured_feedback,
-        "revision_type": "patch" if structured_feedback and structured_feedback.complexity == "patch" else "full",
+        "revision_type": "patch"
+        if structured_feedback and structured_feedback.complexity == "patch"
+        else "full",
         "parent_revision_id": parent_revision_id,
         "feedback_day_index": feedback_day_index,
-        "feedback_tags": feedback_tags or []
+        "feedback_tags": feedback_tags or [],
     }
 
     try:
@@ -968,7 +963,7 @@ async def run_recalculate_graph(
     parent_revision_id: int,
     previous_plan: TripPlan,
     revision_notes: str,
-    day_attractions: List[Any]
+    day_attractions: List[Any],
 ) -> Optional[TripPlan]:
     """
     【函数作用】用户手动调整某天景点顺序后的"轻量重算"工作流。
@@ -992,9 +987,7 @@ async def run_recalculate_graph(
     """
     # ==================== 步骤 1：从上一版本构造状态 ====================
     # 信息收集类字段全部复用上一版本产物，RouteAgent / PlannerAgent 是仅有的重执行节点
-    prev_attractions = [
-        a for day in previous_plan.day_plans for a in day.attractions
-    ]
+    prev_attractions = [a for day in previous_plan.day_plans for a in day.attractions]
     # 跨进程入队后 day_attractions 是 dict 列表，需还原为 Attraction 对象供节点使用
     day_attractions = [
         Attraction(**a) if isinstance(a, dict) else a for a in (day_attractions or [])
@@ -1015,7 +1008,7 @@ async def run_recalculate_graph(
         "plan_id": plan_id,
         "user_id": user_id,
         "request": request,
-        "intent_analysis": None,          # 无意图分析，planner 回退 style="standard"
+        "intent_analysis": None,  # 无意图分析，planner 回退 style="standard"
         "attractions": prev_attractions,  # 完整景点池，供 planner 复现其余天数
         "hotels": list(hotels_by_name.values()),
         "restaurants": list(restaurants_by_name.values()),
@@ -1042,11 +1035,11 @@ async def run_recalculate_graph(
         "human_decisions": {},
         "previous_plan": previous_plan,
         "revision_notes": revision_notes,
-        "structured_feedback": None,      # 无结构化反馈，跳过记忆固化
-        "revision_type": "recalculate",   # finalize 据此把版本来源记为 recalculate
+        "structured_feedback": None,  # 无结构化反馈，跳过记忆固化
+        "revision_type": "recalculate",  # finalize 据此把版本来源记为 recalculate
         "parent_revision_id": parent_revision_id,
         "feedback_day_index": None,
-        "feedback_tags": []
+        "feedback_tags": [],
     }
 
     try:

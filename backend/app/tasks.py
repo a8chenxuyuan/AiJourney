@@ -30,7 +30,6 @@ from app.services.crawler_service import CrawlerService
 from app.services.memory_service import MemoryService
 from app.utils.queue import enqueue_revision_task
 
-
 # ==================== Revision 任务并发控制（Worker 进程内） ====================
 # 同一 plan_id 同时只允许一个 revision 任务在跑。
 # 设计要点：
@@ -82,7 +81,7 @@ async def run_revision_task(
     feedback_day_index: Optional[int],
     feedback_tags: List[str],
     structured_feedback: Optional[dict] = None,
-    source: str = "feedback"
+    source: str = "feedback",
 ) -> None:
     """
     行程修订任务：执行 LangGraph 修订链路并回写反馈结果。
@@ -117,8 +116,10 @@ async def run_revision_task(
 
     # 已有 revision 任务在跑则直接放弃
     if lock.locked():
-        logger.warning(f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑（来源={_revision_running.get(plan_id)}），"
-                       f"新任务来源={source} 直接放弃")
+        logger.warning(
+            f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑（来源={_revision_running.get(plan_id)}），"
+            f"新任务来源={source} 直接放弃"
+        )
         # 不修改 plan.status / 不创建新 revision，避免把正在跑的任务结果覆盖
         return
 
@@ -141,7 +142,7 @@ async def run_revision_task(
                 revision_notes=revision_notes,
                 feedback_day_index=feedback_day_index,
                 feedback_tags=feedback_tags,
-                structured_feedback=structured_input
+                structured_feedback=structured_input,
             )
 
             if result:
@@ -151,9 +152,7 @@ async def run_revision_task(
                     # 回写结构化反馈（仅针对单条反馈）
                     if feedback_id is not None and structured_result:
                         await memory_service.update_feedback_structured(
-                            session,
-                            feedback_id=feedback_id,
-                            structured_feedback=structured_result
+                            session, feedback_id=feedback_id, structured_feedback=structured_result
                         )
                     # 找到刚创建的最新版本
                     current_revision = await memory_service.get_current_revision(session, plan_id)
@@ -162,7 +161,7 @@ async def run_revision_task(
                             session,
                             feedback_id=feedback_id,
                             revision_type=current_revision.source,
-                            accepted_revision_id=current_revision.id
+                            accepted_revision_id=current_revision.id,
                         )
                         await session.commit()
         except Exception as exc:
@@ -185,7 +184,7 @@ async def run_recalculate_task(
     parent_revision_id: int,
     previous_plan: dict,
     revision_notes: str,
-    day_attractions: list
+    day_attractions: list,
 ) -> None:
     """
     行程重算任务：执行 RouteAgent + PlannerAgent 轻量重算链路并落新版本。
@@ -210,8 +209,10 @@ async def run_recalculate_task(
 
     # 已有 revision/recalculate 任务在跑则直接放弃
     if lock.locked():
-        logger.warning(f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑（来源={_revision_running.get(plan_id)}），"
-                       f"重算任务直接放弃")
+        logger.warning(
+            f"[Revision Lock] plan_id={plan_id} 已有修订任务在跑（来源={_revision_running.get(plan_id)}），"
+            f"重算任务直接放弃"
+        )
         return
 
     async with lock:
@@ -230,7 +231,7 @@ async def run_recalculate_task(
                 parent_revision_id=parent_revision_id,
                 previous_plan=prev_plan,
                 revision_notes=revision_notes,
-                day_attractions=day_attractions
+                day_attractions=day_attractions,
             )
         except Exception as exc:
             logger.exception(f"[Background Recalculate Task] 重算任务 {plan_id} 执行失败: {exc}")
@@ -243,7 +244,9 @@ async def run_recalculate_task(
             _revision_running.pop(plan_id, None)
 
 
-async def run_crawler_task(ctx: dict, cities: Optional[List[str]], max_pages: Optional[int]) -> Dict:
+async def run_crawler_task(
+    ctx: dict, cities: Optional[List[str]], max_pages: Optional[int]
+) -> Dict:
     """
     爬虫任务：抓取城市攻略并入向量库（由 Worker 进程执行）。
 
@@ -277,17 +280,12 @@ def _is_rainy(forecast_day: Dict[str, Any]) -> bool:
     Returns:
         bool: 是否下雨。
     """
-    return (
-        "雨" in (forecast_day.get("day_weather") or "")
-        or "雨" in (forecast_day.get("night_weather") or "")
+    return "雨" in (forecast_day.get("day_weather") or "") or "雨" in (
+        forecast_day.get("night_weather") or ""
     )
 
 
-def _find_rainy_dates(
-    forecasts: List[Dict[str, Any]],
-    start_date: str,
-    end_date: str
-) -> List[str]:
+def _find_rainy_dates(forecasts: List[Dict[str, Any]], start_date: str, end_date: str) -> List[str]:
     """
     纯函数：从高德预报中筛出行程期间（含起止日）内的雨天日期。
 
@@ -391,17 +389,19 @@ async def run_weather_check_task(ctx: dict) -> Dict[str, int]:
                 if exists.scalar_one_or_none():
                     continue
 
-                session.add(PlanNotification(
-                    user_id=plan.user_id,
-                    plan_id=plan.id,
-                    type="weather",
-                    title="出发前天气提醒",
-                    content=(
-                        f"您的行程（{plan.city}，{plan.start_date} 出发）中，{note}。"
-                        f"雨天出行请携带雨具，建议提前确认室内景点开放时间。"
-                    ),
-                    dedup_key=dedup_key
-                ))
+                session.add(
+                    PlanNotification(
+                        user_id=plan.user_id,
+                        plan_id=plan.id,
+                        type="weather",
+                        title="出发前天气提醒",
+                        content=(
+                            f"您的行程（{plan.city}，{plan.start_date} 出发）中，{note}。"
+                            f"雨天出行请携带雨具，建议提前确认室内景点开放时间。"
+                        ),
+                        dedup_key=dedup_key,
+                    )
+                )
                 await session.commit()
                 notified += 1
 
@@ -423,7 +423,9 @@ async def run_weather_check_task(ctx: dict) -> Dict[str, int]:
                             source="weather",
                         )
                     else:
-                        logger.warning(f"[Weather Check] {plan.id} 无当前版本或 request_data，跳过自动改线")
+                        logger.warning(
+                            f"[Weather Check] {plan.id} 无当前版本或 request_data，跳过自动改线"
+                        )
                 except Exception as exc:
                     # 通知已发出，改线投递失败不回滚，仅记录告警
                     logger.warning(f"[Weather Check] {plan.id} 自动改线任务投递失败: {exc}")

@@ -24,7 +24,6 @@ from app.api.routes.trip import _calculate_days
 from app.db.base import Base
 from app.models.db_models import TripPlanDB, User
 
-
 # ==================== graph._merge_update ====================
 
 
@@ -252,10 +251,10 @@ def test_score_recommendation_cities_weights():
     from app.api.routes.trip import _score_recommendation_cities
 
     scored = _score_recommendation_cities(
-        favorite_cities=["杭州", "杭州", "苏州"],   # 杭州 +4、苏州 +2
-        memory_cities=["杭州", "南京"],             # 杭州 +2、南京 +2
-        history_cities=["苏州"],                    # 苏州 +1
-        knowledge_cities=["苏州", "北京"],          # 苏州 +1、北京 +1
+        favorite_cities=["杭州", "杭州", "苏州"],  # 杭州 +4、苏州 +2
+        memory_cities=["杭州", "南京"],  # 杭州 +2、南京 +2
+        history_cities=["苏州"],  # 苏州 +1
+        knowledge_cities=["苏州", "北京"],  # 苏州 +1、北京 +1
     )
     info_by_city = dict(scored)
     assert info_by_city["杭州"]["score"] == 6

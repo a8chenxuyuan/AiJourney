@@ -16,9 +16,7 @@ backend/app/services/crawler_service.py
 
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any, Dict, List
 
 from app.config import settings
 from app.services.rag_service import get_rag_service
@@ -39,9 +37,7 @@ class CrawlerService:
         self.rag_service = get_rag_service()
 
     async def crawl_city_guides(
-        self,
-        cities: List[str] = None,
-        max_pages: int = None
+        self, cities: List[str] = None, max_pages: int = None
     ) -> Dict[str, Any]:
         """
         抓取城市攻略数据。
@@ -59,11 +55,13 @@ class CrawlerService:
         documents = []
         for city in target_cities:
             # TODO: 替换为真实爬虫逻辑
-            documents.append({
-                "title": f"{city}旅游攻略",
-                "content": f"{city}是一个历史悠久、风景优美的城市，拥有众多著名景点和美食。",
-                "source_type": "crawler"
-            })
+            documents.append(
+                {
+                    "title": f"{city}旅游攻略",
+                    "content": f"{city}是一个历史悠久、风景优美的城市，拥有众多著名景点和美食。",
+                    "source_type": "crawler",
+                }
+            )
 
         # 将文档存入向量库
         for doc in documents:
@@ -76,7 +74,7 @@ class CrawlerService:
             "cities": target_cities,
             "documents_added": len(documents),
             "status": "completed",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     async def get_task_status(self, task_id: str) -> Dict[str, Any]:
@@ -93,5 +91,5 @@ class CrawlerService:
         return {
             "task_id": task_id,
             "status": "completed",
-            "message": "当前为模拟状态，真实实现需接入任务队列"
+            "message": "当前为模拟状态，真实实现需接入任务队列",
         }

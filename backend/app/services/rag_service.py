@@ -19,12 +19,12 @@ RAG（检索增强生成）服务模块。
 import asyncio
 import os
 import uuid
-from typing import Callable, List, Dict, Any, Optional
+from typing import Any, Callable, Dict, List, Optional
 
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from loguru import logger
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from app.config import settings
 
@@ -56,7 +56,9 @@ class RAGService:
             # 验证远程服务是否可用
             self.client.get_collections()
         except Exception as exc:
-            logger.warning(f"[RAGService] 远程 Qdrant ({settings.qdrant_url}) 连接失败: {exc}，回退到内存模式")
+            logger.warning(
+                f"[RAGService] 远程 Qdrant ({settings.qdrant_url}) 连接失败: {exc}，回退到内存模式"
+            )
             self.client = QdrantClient(":memory:")
         self.collection_name = settings.qdrant_collection
         # 延迟加载 embedding 模型，避免服务启动时阻塞
@@ -65,9 +67,7 @@ class RAGService:
         # 置 True 后所有向量检索/写入自动降级，规划主流程不受影响
         self._embedding_failed = False
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=100,
-            separators=["\n\n", "\n", "。", "；", " "]
+            chunk_size=500, chunk_overlap=100, separators=["\n\n", "\n", "。", "；", " "]
         )
 
     @property
@@ -89,6 +89,7 @@ class RAGService:
         if self._embedding_model is None:
             try:
                 from sentence_transformers import SentenceTransformer
+
                 self._embedding_model = SentenceTransformer(settings.embedding_model_name)
             except Exception as exc:
                 # 标记失败：此后所有向量相关操作快速降级，不再阻塞流程
@@ -117,7 +118,7 @@ class RAGService:
             vector_size = len(sample_embedding)
             self.client.create_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
 
     def split_text(self, text: str) -> List[str]:
@@ -144,11 +145,7 @@ class RAGService:
         """
         return self.embedding_model.encode(texts).tolist()
 
-    def add_documents(
-        self,
-        documents: List[Dict[str, Any]],
-        city: Optional[str] = None
-    ) -> None:
+    def add_documents(self, documents: List[Dict[str, Any]], city: Optional[str] = None) -> None:
         """
         将文档添加到向量库。
 
@@ -166,26 +163,25 @@ class RAGService:
             chunks = self.split_text(doc["content"])
             for chunk in chunks:
                 vector = self.embed_texts([chunk])[0]
-                points.append(PointStruct(
-                    # 用 UUID 作为 point id，避免跨批次自增 id 从 0 重叠导致旧文档被覆盖
-                    id=str(uuid.uuid4()),
-                    vector=vector,
-                    payload={
-                        "title": doc.get("title", ""),
-                        "content": chunk,
-                        "city": city,
-                        "source_type": doc.get("source_type", "manual")
-                    }
-                ))
+                points.append(
+                    PointStruct(
+                        # 用 UUID 作为 point id，避免跨批次自增 id 从 0 重叠导致旧文档被覆盖
+                        id=str(uuid.uuid4()),
+                        vector=vector,
+                        payload={
+                            "title": doc.get("title", ""),
+                            "content": chunk,
+                            "city": city,
+                            "source_type": doc.get("source_type", "manual"),
+                        },
+                    )
+                )
 
         if points:
             self.client.upsert(collection_name=self.collection_name, points=points)
 
     def search(
-        self,
-        query: str,
-        city: Optional[str] = None,
-        top_k: int = None
+        self, query: str, city: Optional[str] = None, top_k: int = None
     ) -> List[Dict[str, Any]]:
         """
         根据查询文本检索相关文档片段。
@@ -217,7 +213,7 @@ class RAGService:
             collection_name=self.collection_name,
             query=query_vector,
             limit=top_k,
-            query_filter=filter_condition
+            query_filter=filter_condition,
         )
         results = response.points
 
@@ -225,7 +221,7 @@ class RAGService:
             {
                 "content": r.payload.get("content", ""),
                 "title": r.payload.get("title", ""),
-                "score": r.score
+                "score": r.score,
             }
             for r in results
         ]
@@ -237,7 +233,7 @@ class RAGService:
         source_type: str = "attraction",
         external_fetcher: Optional[Callable] = None,
         min_score: float = 0.75,
-        top_k: int = None
+        top_k: int = None,
     ) -> Dict[str, Any]:
         """
         先查缓存，未命中则调外部搜索，结果存入缓存后返回。
@@ -268,9 +264,7 @@ class RAGService:
         # 1. 先查本地缓存
         # search 内部会触发嵌入模型编码（同步重操作），
         # 必须放入线程池执行，避免阻塞 asyncio 事件循环导致 SSE 假死
-        cached_results = await asyncio.to_thread(
-            self.search, query, city=city, top_k=top_k
-        )
+        cached_results = await asyncio.to_thread(self.search, query, city=city, top_k=top_k)
 
         # 检查是否有高置信度的缓存结果
         if cached_results:
@@ -284,6 +278,7 @@ class RAGService:
         if external_fetcher is None:
             # 默认使用百度百科搜索
             from app.services.baike_service import get_baike_service
+
             baike = get_baike_service()
             external_fetcher = baike.search
 
@@ -299,12 +294,14 @@ class RAGService:
             if external_result and external_result.get("summary"):
                 await asyncio.to_thread(
                     self.add_documents,
-                    documents=[{
-                        "title": external_result.get("title", query),
-                        "content": external_result.get("summary", ""),
-                        "source_type": source_type
-                    }],
-                    city=city
+                    documents=[
+                        {
+                            "title": external_result.get("title", query),
+                            "content": external_result.get("summary", ""),
+                            "source_type": source_type,
+                        }
+                    ],
+                    city=city,
                 )
 
                 return {
@@ -313,7 +310,7 @@ class RAGService:
                     "score": 1.0,  # 外部搜索结果默认高置信度
                     "from_cache": False,
                     "source_type": source_type,
-                    "url": external_result.get("url", "")
+                    "url": external_result.get("url", ""),
                 }
 
         except Exception as e:
@@ -332,7 +329,7 @@ class RAGService:
             "title": query,
             "score": 0.0,
             "from_cache": False,
-            "source_type": source_type
+            "source_type": source_type,
         }
 
     async def batch_search_or_fetch(
@@ -341,7 +338,7 @@ class RAGService:
         city: Optional[str] = None,
         source_type: str = "attraction",
         external_fetcher: Optional[Callable] = None,
-        min_score: float = 0.75
+        min_score: float = 0.75,
     ) -> List[Dict[str, Any]]:
         """
         批量搜索：先查缓存，未命中则外部搜索。
@@ -357,8 +354,7 @@ class RAGService:
             List[Dict[str, Any]]: 搜索结果列表。
         """
         tasks = [
-            self.search_or_fetch(q, city, source_type, external_fetcher, min_score)
-            for q in queries
+            self.search_or_fetch(q, city, source_type, external_fetcher, min_score) for q in queries
         ]
         return await asyncio.gather(*tasks)
 

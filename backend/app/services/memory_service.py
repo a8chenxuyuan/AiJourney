@@ -19,11 +19,11 @@ import json
 import uuid
 from typing import Any, Dict, List, Optional
 
+from loguru import logger
+from qdrant_client.models import PointStruct
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from loguru import logger
-from qdrant_client.models import PointStruct
 
 from app.models import db_models
 from app.models.schemas import StructuredFeedback, TripPlan
@@ -50,10 +50,7 @@ class MemoryService:
     # ==================== 短期记忆：行程版本 ====================
 
     async def create_initial_revision(
-        self,
-        session: AsyncSession,
-        plan_id: str,
-        trip_plan: TripPlan
+        self, session: AsyncSession, plan_id: str, trip_plan: TripPlan
     ) -> db_models.PlanRevision:
         """
         为新建行程创建初始版本 v1。
@@ -71,7 +68,7 @@ class MemoryService:
             parent_revision_id=None,
             trip_plan_json=trip_plan.model_dump(mode="json"),
             is_current=True,
-            source="initial"
+            source="initial",
         )
         session.add(revision)
         await session.flush()
@@ -84,7 +81,7 @@ class MemoryService:
         parent_revision_id: int,
         trip_plan: TripPlan,
         source: str = "patch",
-        diff_summary: Optional[Dict[str, Any]] = None
+        diff_summary: Optional[Dict[str, Any]] = None,
     ) -> db_models.PlanRevision:
         """
         基于父版本创建新版本，并自动提升版本号、更新 current 标记。
@@ -117,16 +114,14 @@ class MemoryService:
             trip_plan_json=trip_plan.model_dump(mode="json"),
             is_current=True,
             source=source,
-            diff_summary=diff_summary or {}
+            diff_summary=diff_summary or {},
         )
         session.add(revision)
         await session.flush()
         return revision
 
     async def get_current_revision(
-        self,
-        session: AsyncSession,
-        plan_id: str
+        self, session: AsyncSession, plan_id: str
     ) -> Optional[db_models.PlanRevision]:
         """
         获取某 plan_id 当前生效的版本，同时预加载关联反馈。
@@ -134,17 +129,14 @@ class MemoryService:
         result = await session.execute(
             select(db_models.PlanRevision)
             .where(
-                db_models.PlanRevision.plan_id == plan_id,
-                db_models.PlanRevision.is_current == True
+                db_models.PlanRevision.plan_id == plan_id, db_models.PlanRevision.is_current == True
             )
             .options(selectinload(db_models.PlanRevision.feedbacks))
         )
         return result.scalar_one_or_none()
 
     async def get_revision_history(
-        self,
-        session: AsyncSession,
-        plan_id: str
+        self, session: AsyncSession, plan_id: str
     ) -> List[db_models.PlanRevision]:
         """
         获取某 plan_id 的版本历史，按版本号升序。
@@ -168,7 +160,7 @@ class MemoryService:
         day_index: Optional[int],
         tags: List[str],
         raw_text: str,
-        structured_feedback: Optional[StructuredFeedback] = None
+        structured_feedback: Optional[StructuredFeedback] = None,
     ) -> db_models.PlanFeedback:
         """
         创建一条用户反馈记录。
@@ -180,19 +172,17 @@ class MemoryService:
             day_index=day_index,
             raw_text=raw_text,
             tags=tags,
-            structured_feedback=structured_feedback.model_dump(mode="json") if structured_feedback else {},
-            is_withdrawn=False
+            structured_feedback=structured_feedback.model_dump(mode="json")
+            if structured_feedback
+            else {},
+            is_withdrawn=False,
         )
         session.add(feedback)
         await session.flush()
         return feedback
 
     async def update_feedback_revision_result(
-        self,
-        session: AsyncSession,
-        feedback_id: int,
-        revision_type: str,
-        accepted_revision_id: int
+        self, session: AsyncSession, feedback_id: int, revision_type: str, accepted_revision_id: int
     ) -> None:
         """
         反馈处理完成后，回写实际采用的修订策略和生成的版本 ID。
@@ -200,17 +190,11 @@ class MemoryService:
         await session.execute(
             update(db_models.PlanFeedback)
             .where(db_models.PlanFeedback.id == feedback_id)
-            .values(
-                revision_type=revision_type,
-                accepted_revision_id=accepted_revision_id
-            )
+            .values(revision_type=revision_type, accepted_revision_id=accepted_revision_id)
         )
 
     async def update_feedback_structured(
-        self,
-        session: AsyncSession,
-        feedback_id: int,
-        structured_feedback: Dict[str, Any]
+        self, session: AsyncSession, feedback_id: int, structured_feedback: Dict[str, Any]
     ) -> None:
         """
         回写 FeedbackExtractor 提取的结构化反馈。
@@ -221,11 +205,7 @@ class MemoryService:
             .values(structured_feedback=structured_feedback)
         )
 
-    async def withdraw_feedback(
-        self,
-        session: AsyncSession,
-        feedback_id: int
-    ) -> None:
+    async def withdraw_feedback(self, session: AsyncSession, feedback_id: int) -> None:
         """
         撤回一条反馈。
 
@@ -243,7 +223,7 @@ class MemoryService:
         feedback_id: int,
         day_index: Optional[int],
         tags: List[str],
-        raw_text: str
+        raw_text: str,
     ) -> db_models.PlanFeedback:
         """
         编辑反馈：旧记录标记为被替代，新建一条反馈记录。
@@ -262,7 +242,7 @@ class MemoryService:
             raw_text=raw_text,
             tags=tags,
             structured_feedback={},
-            is_withdrawn=False
+            is_withdrawn=False,
         )
         session.add(new_feedback)
         await session.flush()
@@ -273,9 +253,7 @@ class MemoryService:
         return new_feedback
 
     async def get_active_feedbacks(
-        self,
-        session: AsyncSession,
-        plan_id: str
+        self, session: AsyncSession, plan_id: str
     ) -> List[db_models.PlanFeedback]:
         """
         获取某 plan_id 下未撤回、未被编辑替代的有效反馈列表。
@@ -285,16 +263,14 @@ class MemoryService:
             .where(
                 db_models.PlanFeedback.plan_id == plan_id,
                 db_models.PlanFeedback.is_withdrawn == False,
-                db_models.PlanFeedback.edited_by_feedback_id.is_(None)
+                db_models.PlanFeedback.edited_by_feedback_id.is_(None),
             )
             .order_by(db_models.PlanFeedback.created_at.asc())
         )
         return result.scalars().all()
 
     async def aggregate_active_feedbacks(
-        self,
-        session: AsyncSession,
-        plan_id: str
+        self, session: AsyncSession, plan_id: str
     ) -> tuple[str, List[db_models.PlanFeedback]]:
         """
         聚合某 plan_id 下所有有效反馈为一段综合修改意见。
@@ -324,7 +300,7 @@ class MemoryService:
         user_id: int,
         city: str,
         structured_feedback: StructuredFeedback,
-        raw_text: str
+        raw_text: str,
     ) -> None:
         """
         把反馈中提取的偏好信号沉淀为长期记忆。
@@ -348,7 +324,9 @@ class MemoryService:
         for action in structured_feedback.actions:
             action_type = action.type if hasattr(action, "type") else action.get("type")
             action_name = action.name if hasattr(action, "name") else action.get("name")
-            action_target_name = action.target_name if hasattr(action, "target_name") else action.get("target_name")
+            action_target_name = (
+                action.target_name if hasattr(action, "target_name") else action.get("target_name")
+            )
             action_reason = action.reason if hasattr(action, "reason") else action.get("reason")
 
             memory_type = self._action_to_memory_type(action_type)
@@ -358,7 +336,9 @@ class MemoryService:
             entity_name = action_name or action_target_name
             reason = action_reason or ""
             context = f"用户反馈：{raw_text}"
-            sentiment = "negative" if "dislike" in memory_type or "remove" in memory_type else "positive"
+            sentiment = (
+                "negative" if "dislike" in memory_type or "remove" in memory_type else "positive"
+            )
 
             memory = db_models.UserMemory(
                 user_id=user_id,
@@ -367,7 +347,7 @@ class MemoryService:
                 city=city,
                 sentiment=sentiment,
                 reason=reason,
-                context=context
+                context=context,
             )
             session.add(memory)
             await session.flush()
@@ -384,15 +364,13 @@ class MemoryService:
 
     @staticmethod
     async def get_or_create_preference(
-        session: AsyncSession,
-        user_id: int
+        session: AsyncSession, user_id: int
     ) -> db_models.UserPreferenceDB:
         """
         获取或创建用户偏好记录。
         """
         result = await session.execute(
-            select(db_models.UserPreferenceDB)
-            .where(db_models.UserPreferenceDB.user_id == user_id)
+            select(db_models.UserPreferenceDB).where(db_models.UserPreferenceDB.user_id == user_id)
         )
         preference = result.scalar_one_or_none()
         if preference is None:
@@ -437,9 +415,7 @@ class MemoryService:
 
     @staticmethod
     async def update_preference(
-        session: AsyncSession,
-        user_id: int,
-        updates: Dict[str, Any]
+        session: AsyncSession, user_id: int, updates: Dict[str, Any]
     ) -> db_models.UserPreferenceDB:
         """
         更新用户偏好记录。
@@ -453,10 +429,7 @@ class MemoryService:
         await session.flush()
         return preference
 
-    async def _sync_memory_to_qdrant(
-        self,
-        memory: db_models.UserMemory
-    ) -> None:
+    async def _sync_memory_to_qdrant(self, memory: db_models.UserMemory) -> None:
         """
         把 UserMemory 文本写入 Qdrant 向量库，供后续相似场景检索。
         """
@@ -470,21 +443,23 @@ class MemoryService:
         await asyncio.to_thread(
             self.rag.client.upsert,
             collection_name=self.rag.collection_name,
-            points=[PointStruct(
-                id=point_id,
-                vector=embedding,
-                payload={
-                    "memory_id": memory.id,
-                    "user_id": memory.user_id,
-                    "memory_type": memory.memory_type,
-                    "entity_name": memory.entity_name,
-                    "city": memory.city,
-                    "sentiment": memory.sentiment,
-                    "reason": memory.reason,
-                    "context": memory.context,
-                    "source_type": "user_memory"
-                }
-            )]
+            points=[
+                PointStruct(
+                    id=point_id,
+                    vector=embedding,
+                    payload={
+                        "memory_id": memory.id,
+                        "user_id": memory.user_id,
+                        "memory_type": memory.memory_type,
+                        "entity_name": memory.entity_name,
+                        "city": memory.city,
+                        "sentiment": memory.sentiment,
+                        "reason": memory.reason,
+                        "context": memory.context,
+                        "source_type": "user_memory",
+                    },
+                )
+            ],
         )
 
         memory.embedding_id = point_id
@@ -502,11 +477,7 @@ class MemoryService:
         return mapping.get(action_type)
 
     async def retrieve_relevant_memories(
-        self,
-        query: str,
-        user_id: int,
-        city: Optional[str] = None,
-        top_k: int = 3
+        self, query: str, user_id: int, city: Optional[str] = None, top_k: int = 3
     ) -> List[Dict[str, Any]]:
         """
         从 Qdrant 检索与当前查询相关的用户 episodic 记忆。
@@ -516,7 +487,7 @@ class MemoryService:
             filter_condition = {
                 "must": [
                     {"key": "user_id", "match": {"value": user_id}},
-                    {"key": "source_type", "match": {"value": "user_memory"}}
+                    {"key": "source_type", "match": {"value": "user_memory"}},
                 ]
             }
             if city:
@@ -527,7 +498,7 @@ class MemoryService:
                 collection_name=self.rag.collection_name,
                 query=embedding,
                 limit=top_k,
-                query_filter=filter_condition
+                query_filter=filter_condition,
             )
             results = response.points
 
@@ -537,7 +508,7 @@ class MemoryService:
                     "entity_name": r.payload.get("entity_name"),
                     "sentiment": r.payload.get("sentiment"),
                     "reason": r.payload.get("reason"),
-                    "score": r.score
+                    "score": r.score,
                 }
                 for r in results
             ]
@@ -545,11 +516,7 @@ class MemoryService:
             logger.exception(f"[MemoryService] 检索 episodic 记忆失败: {e}")
             return []
 
-    async def get_user_preference_dict(
-        self,
-        session: AsyncSession,
-        user_id: int
-    ) -> Dict[str, Any]:
+    async def get_user_preference_dict(self, session: AsyncSession, user_id: int) -> Dict[str, Any]:
         """
         获取用户抽象偏好字典。
         """

@@ -14,6 +14,7 @@ LLM 服务封装模块。
 """
 
 from langchain_openai import ChatOpenAI
+
 from app.config import settings
 
 
@@ -41,5 +42,5 @@ def get_llm(temperature: float = None, model_id: str = None, timeout: int = None
         base_url=settings.llm_base_url,
         temperature=temperature if temperature is not None else settings.llm_temperature,
         timeout=timeout if timeout is not None else settings.agent_timeout,
-        max_retries=settings.agent_max_retries
+        max_retries=settings.agent_max_retries,
     )
