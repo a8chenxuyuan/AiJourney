@@ -137,7 +137,7 @@ def _make_log(
     step: str,
     input_preview: str = "",
     output_preview: str = "",
-    tool_calls: list[dict[str, Any]] = None,
+    tool_calls: list[dict[str, Any]] | None = None,
 ) -> AgentLog:
     """
     【函数作用】构造 Agent 执行日志对象。
@@ -557,7 +557,7 @@ async def intent_agent_node(state: TravelPlanningState) -> dict[str, Any]:
         "intent_analysis": intent,  # 结构化意图分析结果
         # messages 列表包含原始消息 + LLM 输出的意图 JSON
         # 这样后续节点可以看到完整的对话上下文
-        "messages": messages + [HumanMessage(content=intent.model_dump_json(ensure_ascii=False))],
+        "messages": [*messages, HumanMessage(content=intent.model_dump_json(ensure_ascii=False))],
         "logs": [log],  # 执行日志列表
         "current_step": "intent_agent",  # 当前步骤名称，用于前端展示进度
     }
@@ -603,7 +603,7 @@ async def attraction_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     search_keywords.extend(intent.must_visit if intent else [])
     # 去重：先对每个关键词去除首尾空格，过滤空字符串，然后转为集合去重，最后转回列表
     # set() 会自动去重，list() 将集合转回列表
-    search_keywords = list(set([k.strip() for k in search_keywords if k.strip()]))
+    search_keywords = list({k.strip() for k in search_keywords if k.strip()})
 
     # 限制最终返回的景点数量，避免后续路线规划节点因景点过多而产生大量 API 调用
     max_attractions = 10
@@ -1556,8 +1556,8 @@ async def _call_llm_for_plan(
         llm = get_llm(temperature=0.4, timeout=300)
         try:
             response = await asyncio.wait_for(llm.ainvoke(messages), timeout=300)
-        except TimeoutError:
-            raise RuntimeError("PlannerAgent LLM 调用超时（>300秒）")
+        except TimeoutError as err:
+            raise RuntimeError("PlannerAgent LLM 调用超时（>300秒）") from err
         tool_calls.append({"tool": "llm", "preview": str(response.content)[:200]})
         plan = parse_llm_json(str(response.content), TripPlan)
         if plan is None:
@@ -1979,10 +1979,10 @@ async def planner_agent_node(state: TravelPlanningState) -> dict[str, Any]:
         # 用 asyncio.wait_for 强制 5 分钟超时，防止百炼 API 在巨大 prompt 下无限挂起
         try:
             response = await asyncio.wait_for(llm.ainvoke(messages), timeout=300)
-        except TimeoutError:
+        except TimeoutError as err:
             raise RuntimeError(
                 f"PlannerAgent LLM 调用超时（>300秒），prompt 长度={len(human_prompt)}"
-            )
+            ) from err
         logger.info("[Node] planner_agent_node LLM 调用完成")
         # 记录 LLM 调用到工具列表
         tool_calls.append({"tool": "llm", "preview": str(response.content)[:200]})

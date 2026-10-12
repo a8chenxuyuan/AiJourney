@@ -98,12 +98,12 @@ async def _get_current_user_for_sse(
 
     try:
         user_id = int(user_id_str)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 用户 ID 格式错误",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from err
 
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

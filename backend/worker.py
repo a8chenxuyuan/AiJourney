@@ -15,6 +15,8 @@ ARQ Worker 独立进程入口。
 - arq：基于 Redis 的异步任务队列
 """
 
+from typing import ClassVar
+
 from arq import cron, run_worker
 from arq.connections import RedisSettings
 from loguru import logger
@@ -74,14 +76,14 @@ class WorkerSettings:
       arq 默认 3600 秒才写一次，观测性差，这里改为 30 秒。
     """
 
-    functions = [
+    functions: ClassVar[list] = [
         run_planning_task,
         run_revision_task,
         run_recalculate_task,
         run_crawler_task,
         run_weather_check_task,
     ]
-    cron_jobs = [cron(run_weather_check_task, hour=8, minute=0)]
+    cron_jobs: ClassVar[list] = [cron(run_weather_check_task, hour=8, minute=0)]
     redis_settings = _redis_settings
     max_jobs = 4
     job_timeout = 3600

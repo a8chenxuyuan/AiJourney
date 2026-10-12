@@ -37,7 +37,7 @@ class CrawlerService:
         self.rag_service = get_rag_service()
 
     async def crawl_city_guides(
-        self, cities: list[str] = None, max_pages: int = None
+        self, cities: list[str] | None = None, max_pages: int | None = None
     ) -> dict[str, Any]:
         """
         抓取城市攻略数据。

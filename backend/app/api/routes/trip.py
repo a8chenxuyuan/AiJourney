@@ -453,7 +453,7 @@ async def list_notifications(
     unread_result = await session.execute(
         select(func.count())
         .select_from(PlanNotification)
-        .where(PlanNotification.user_id == current_user.id, PlanNotification.is_read == False)
+        .where(PlanNotification.user_id == current_user.id, PlanNotification.is_read.is_(False))
     )
     notifications = [
         {
@@ -485,7 +485,7 @@ async def read_all_notifications(
     """
     result = await session.execute(
         update(PlanNotification)
-        .where(PlanNotification.user_id == current_user.id, PlanNotification.is_read == False)
+        .where(PlanNotification.user_id == current_user.id, PlanNotification.is_read.is_(False))
         .values(is_read=True)
     )
     await session.commit()
@@ -547,7 +547,7 @@ def _score_recommendation_cities(
         )
 
     def _sort_key(item: tuple[str, dict[str, Any]]) -> tuple[int, int, int]:
-        city, info = item
+        _, info = item
         return (-info["score"], source_priority[_dominant_source(info)], info["first_seen"])
 
     return sorted(stats.items(), key=_sort_key)

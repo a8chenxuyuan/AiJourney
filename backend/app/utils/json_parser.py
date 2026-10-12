@@ -106,7 +106,7 @@ def try_repair_json(text: str) -> str | None:
     return repaired if repaired else None
 
 
-def parse_llm_json(text: str, model_class: type[T]) -> T | None:
+def parse_llm_json[T](text: str, model_class: type[T]) -> T | None:
     """
     解析 LLM 输出并校验为指定 Pydantic 模型。
 

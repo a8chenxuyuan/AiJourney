@@ -78,12 +78,12 @@ async def get_current_user(
 
     try:
         user_id = int(user_id_str)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 用户 ID 格式错误",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from err
 
     user = await AuthService.get_user_by_id(session, user_id)
     if not user:

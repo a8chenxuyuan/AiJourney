@@ -182,7 +182,7 @@ class RAGService:
             self.client.upsert(collection_name=self.collection_name, points=points)
 
     def search(
-        self, query: str, city: str | None = None, top_k: int = None
+        self, query: str, city: str | None = None, top_k: int | None = None
     ) -> list[dict[str, Any]]:
         """
         根据查询文本检索相关文档片段。
@@ -234,7 +234,7 @@ class RAGService:
         source_type: str = "attraction",
         external_fetcher: Callable | None = None,
         min_score: float = 0.75,
-        top_k: int = None,
+        top_k: int | None = None,
     ) -> dict[str, Any]:
         """
         先查缓存，未命中则调外部搜索，结果存入缓存后返回。

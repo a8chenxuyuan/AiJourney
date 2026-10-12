@@ -468,7 +468,7 @@ async def city_gather_node(state: TravelPlanningState) -> dict[str, Any]:
     all_logs: list[Any] = []
     first_error: BaseException | None = None
 
-    for city, updates in zip(cities, city_updates):
+    for city, updates in zip(cities, city_updates, strict=True):
         merged, city_error = _merge_node_updates(updates)
         # 与原并行批次语义一致：任一子节点失败则让整次规划失败（由外层捕获标记 failed）
         if city_error and first_error is None:
@@ -501,7 +501,7 @@ async def city_gather_node(state: TravelPlanningState) -> dict[str, Any]:
         "restaurants": restaurants_by_city.get(primary, []),
         "weather": weather_by_city.get(primary, []),
         "rag_context": rag_by_city.get(primary, ""),
-        "logs": all_logs,
+        "logs": [*all_logs, log],
         "current_step": "city_gather",
     }
 
@@ -658,7 +658,7 @@ async def route_multi_node(state: TravelPlanningState) -> dict[str, Any]:
         "route_matrix": route_matrix_by_city.get(cities[0], {}),
         "route_matrix_by_city": route_matrix_by_city,
         "intercity_legs": intercity_legs,
-        "logs": all_logs + [log],
+        "logs": [*all_logs, log],
         "current_step": "route_multi",
     }
 

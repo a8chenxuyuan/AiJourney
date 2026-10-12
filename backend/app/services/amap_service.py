@@ -210,10 +210,7 @@ class AmapService:
             "destination": destination,
         }
 
-        if mode == "transit":
-            path = "/direction/transit/integrated"
-        else:
-            path = f"/direction/{mode}"
+        path = "/direction/transit/integrated" if mode == "transit" else f"/direction/{mode}"
 
         data = await self._get(path, params)
         route = data.get("route", {})

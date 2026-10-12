@@ -18,7 +18,9 @@ from langchain_openai import ChatOpenAI
 from app.config import settings
 
 
-def get_llm(temperature: float = None, model_id: str = None, timeout: int = None) -> ChatOpenAI:
+def get_llm(
+    temperature: float | None = None, model_id: str | None = None, timeout: int | None = None
+) -> ChatOpenAI:
     """
     获取配置好的 LangChain ChatModel 实例。
 

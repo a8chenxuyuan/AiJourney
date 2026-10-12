@@ -18,7 +18,7 @@ backend/app/services/baike_service.py
 import asyncio
 import hashlib
 import re
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import quote
 
 import httpx
@@ -50,7 +50,7 @@ class BaikeService:
     SOURCE_INTERVAL = 0.8
 
     # 请求头，模拟浏览器访问
-    HEADERS = {
+    HEADERS: ClassVar[dict[str, str]] = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                       " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -301,7 +301,6 @@ class BaikeService:
 
             # 相关性评分：标题和摘要中包含查询关键词越多，分数越高
             score = 0
-            query_lower = query.lower()
             # 核心词：去除后缀后的最短候选名
             core_keywords = [q for q in self._generate_item_name_candidates(query) if len(q) >= 2]
 

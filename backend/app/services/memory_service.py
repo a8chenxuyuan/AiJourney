@@ -129,7 +129,8 @@ class MemoryService:
         result = await session.execute(
             select(db_models.PlanRevision)
             .where(
-                db_models.PlanRevision.plan_id == plan_id, db_models.PlanRevision.is_current == True
+                db_models.PlanRevision.plan_id == plan_id,
+                db_models.PlanRevision.is_current.is_(True),
             )
             .options(selectinload(db_models.PlanRevision.feedbacks))
         )
@@ -262,7 +263,7 @@ class MemoryService:
             select(db_models.PlanFeedback)
             .where(
                 db_models.PlanFeedback.plan_id == plan_id,
-                db_models.PlanFeedback.is_withdrawn == False,
+                db_models.PlanFeedback.is_withdrawn.is_(False),
                 db_models.PlanFeedback.edited_by_feedback_id.is_(None),
             )
             .order_by(db_models.PlanFeedback.created_at.asc())

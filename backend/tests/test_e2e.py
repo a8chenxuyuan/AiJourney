@@ -62,7 +62,7 @@ def _wait_until(check, timeout: float, interval: float = POLL_INTERVAL_SECONDS):
 @pytest.fixture(scope="session")
 def user_headers(client) -> dict:
     """注册并登录一个专属用户，返回认证请求头（整条 e2e 链路共用）。"""
-    headers, username = register_and_login(client)
+    headers, _ = register_and_login(client)
     return headers
 
 
@@ -393,7 +393,6 @@ def test_18_favorite_add_and_idempotent(client, user_headers, plan_ctx):
 
 def test_19_favorite_multi_type_and_list(client, user_headers, plan_ctx):
     """用例19：酒店/餐厅可收藏，列表包含全部类型，按城市筛选生效。"""
-    plan_id = plan_ctx["plan_id"]
     suffix = uuid.uuid4().hex[:8]
     client.post(
         "/api/trip/favorites",
