@@ -15,7 +15,6 @@ backend/app/utils/validators.py
 
 import re
 from datetime import datetime
-from typing import Optional
 
 
 def is_valid_city_name(city: str) -> bool:
@@ -53,7 +52,7 @@ def is_valid_date_str(date_str: str, fmt: str = "%Y-%m-%d") -> bool:
         return False
 
 
-def calculate_days_between(start_date: str, end_date: str, fmt: str = "%Y-%m-%d") -> Optional[int]:
+def calculate_days_between(start_date: str, end_date: str, fmt: str = "%Y-%m-%d") -> int | None:
     """
     计算两个日期之间的天数（包含起止日期）。
 

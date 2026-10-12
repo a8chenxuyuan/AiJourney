@@ -17,7 +17,7 @@ backend/app/services/memory_service.py
 import asyncio
 import json
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 from qdrant_client.models import PointStruct
@@ -37,7 +37,7 @@ class MemoryService:
     封装短期记忆（版本、反馈）和长期记忆（偏好、 episodic 记忆）的所有操作。
     """
 
-    def __init__(self, rag_service: Optional[RAGService] = None):
+    def __init__(self, rag_service: RAGService | None = None):
         """
         初始化记忆服务。
 
@@ -81,7 +81,7 @@ class MemoryService:
         parent_revision_id: int,
         trip_plan: TripPlan,
         source: str = "patch",
-        diff_summary: Optional[Dict[str, Any]] = None,
+        diff_summary: dict[str, Any] | None = None,
     ) -> db_models.PlanRevision:
         """
         基于父版本创建新版本，并自动提升版本号、更新 current 标记。
@@ -122,7 +122,7 @@ class MemoryService:
 
     async def get_current_revision(
         self, session: AsyncSession, plan_id: str
-    ) -> Optional[db_models.PlanRevision]:
+    ) -> db_models.PlanRevision | None:
         """
         获取某 plan_id 当前生效的版本，同时预加载关联反馈。
         """
@@ -137,7 +137,7 @@ class MemoryService:
 
     async def get_revision_history(
         self, session: AsyncSession, plan_id: str
-    ) -> List[db_models.PlanRevision]:
+    ) -> list[db_models.PlanRevision]:
         """
         获取某 plan_id 的版本历史，按版本号升序。
         """
@@ -157,10 +157,10 @@ class MemoryService:
         plan_id: str,
         revision_id: int,
         user_id: int,
-        day_index: Optional[int],
-        tags: List[str],
+        day_index: int | None,
+        tags: list[str],
         raw_text: str,
-        structured_feedback: Optional[StructuredFeedback] = None,
+        structured_feedback: StructuredFeedback | None = None,
     ) -> db_models.PlanFeedback:
         """
         创建一条用户反馈记录。
@@ -194,7 +194,7 @@ class MemoryService:
         )
 
     async def update_feedback_structured(
-        self, session: AsyncSession, feedback_id: int, structured_feedback: Dict[str, Any]
+        self, session: AsyncSession, feedback_id: int, structured_feedback: dict[str, Any]
     ) -> None:
         """
         回写 FeedbackExtractor 提取的结构化反馈。
@@ -221,8 +221,8 @@ class MemoryService:
         self,
         session: AsyncSession,
         feedback_id: int,
-        day_index: Optional[int],
-        tags: List[str],
+        day_index: int | None,
+        tags: list[str],
         raw_text: str,
     ) -> db_models.PlanFeedback:
         """
@@ -254,7 +254,7 @@ class MemoryService:
 
     async def get_active_feedbacks(
         self, session: AsyncSession, plan_id: str
-    ) -> List[db_models.PlanFeedback]:
+    ) -> list[db_models.PlanFeedback]:
         """
         获取某 plan_id 下未撤回、未被编辑替代的有效反馈列表。
         """
@@ -271,7 +271,7 @@ class MemoryService:
 
     async def aggregate_active_feedbacks(
         self, session: AsyncSession, plan_id: str
-    ) -> tuple[str, List[db_models.PlanFeedback]]:
+    ) -> tuple[str, list[db_models.PlanFeedback]]:
         """
         聚合某 plan_id 下所有有效反馈为一段综合修改意见。
 
@@ -415,7 +415,7 @@ class MemoryService:
 
     @staticmethod
     async def update_preference(
-        session: AsyncSession, user_id: int, updates: Dict[str, Any]
+        session: AsyncSession, user_id: int, updates: dict[str, Any]
     ) -> db_models.UserPreferenceDB:
         """
         更新用户偏好记录。
@@ -464,7 +464,7 @@ class MemoryService:
 
         memory.embedding_id = point_id
 
-    def _action_to_memory_type(self, action_type: Optional[str]) -> Optional[str]:
+    def _action_to_memory_type(self, action_type: str | None) -> str | None:
         """
         把反馈动作映射为记忆类型。
         """
@@ -477,8 +477,8 @@ class MemoryService:
         return mapping.get(action_type)
 
     async def retrieve_relevant_memories(
-        self, query: str, user_id: int, city: Optional[str] = None, top_k: int = 3
-    ) -> List[Dict[str, Any]]:
+        self, query: str, user_id: int, city: str | None = None, top_k: int = 3
+    ) -> list[dict[str, Any]]:
         """
         从 Qdrant 检索与当前查询相关的用户 episodic 记忆。
         """
@@ -516,7 +516,7 @@ class MemoryService:
             logger.exception(f"[MemoryService] 检索 episodic 记忆失败: {e}")
             return []
 
-    async def get_user_preference_dict(self, session: AsyncSession, user_id: int) -> Dict[str, Any]:
+    async def get_user_preference_dict(self, session: AsyncSession, user_id: int) -> dict[str, Any]:
         """
         获取用户抽象偏好字典。
         """

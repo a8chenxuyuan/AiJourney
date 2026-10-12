@@ -21,7 +21,7 @@ LangGraph 共享状态定义模块。
 """
 
 from operator import add
-from typing import Annotated, Any, Dict, List, Optional, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
@@ -109,7 +109,7 @@ class TravelPlanningState(TypedDict):
     # ==================== 第三类：中间产物 ====================
     # 这些字段由各个 Agent 节点逐步填充，是规划过程的关键数据
 
-    intent_analysis: Optional[IntentAnalysis]
+    intent_analysis: IntentAnalysis | None
     """
     【字段作用】IntentAgent 输出的结构化意图分析。
 
@@ -122,7 +122,7 @@ class TravelPlanningState(TypedDict):
     """
 
     # 以下列表字段每个节点会整体替换为新结果，因此不使用 reducer（追加策略）
-    attractions: List[Attraction]
+    attractions: list[Attraction]
     """
     【字段作用】候选景点列表。
 
@@ -133,7 +133,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】route_agent_node（计算景点间距离）、planner_agent_node（编排每日行程）
     """
 
-    hotels: List[Hotel]
+    hotels: list[Hotel]
     """
     【字段作用】候选酒店列表。
 
@@ -144,7 +144,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（安排住宿）、budget_agent_node（计算住宿费用）
     """
 
-    restaurants: List[Meal]
+    restaurants: list[Meal]
     """
     【字段作用】候选餐厅列表。
 
@@ -155,7 +155,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（为每日三餐选择真实餐厅）
     """
 
-    weather: List[WeatherInfo]
+    weather: list[WeatherInfo]
     """
     【字段作用】旅行期间每日天气信息。
 
@@ -166,7 +166,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（雨天安排室内景点）、前端展示
     """
 
-    route_matrix: Dict[str, Any]
+    route_matrix: dict[str, Any]
     """
     【字段作用】景点间路线矩阵。
 
@@ -191,7 +191,7 @@ class TravelPlanningState(TypedDict):
     # ==================== 第四类：规划输出 ====================
     # 这是最终产出的行程计划
 
-    candidate_plans: List[TripPlan]
+    candidate_plans: list[TripPlan]
     """
     【字段作用】PlannerAgent 生成的 1~N 个候选方案。
 
@@ -208,7 +208,7 @@ class TravelPlanningState(TypedDict):
     【用途】多方案场景下标识用户选中了哪个
     """
 
-    final_plan: Optional[TripPlan]
+    final_plan: TripPlan | None
     """
     【字段作用】最终选定的行程计划。
 
@@ -226,7 +226,7 @@ class TravelPlanningState(TypedDict):
     # ==================== 第五类：控制与日志 ====================
     # 用于流程控制和前端实时展示
 
-    messages: Annotated[List[BaseMessage], add_messages]
+    messages: Annotated[list[BaseMessage], add_messages]
     """
     【字段作用】LangChain 消息列表，供 LLM 上下文使用。
 
@@ -242,7 +242,7 @@ class TravelPlanningState(TypedDict):
     【用途】前端 SSE 显示"正在分析意图..."、"正在搜索景点..."等
     """
 
-    logs: Annotated[List[AgentLog], add]
+    logs: Annotated[list[AgentLog], add]
     """
     【字段作用】Agent 执行日志，前端 SSE 实时展示。
 
@@ -251,14 +251,14 @@ class TravelPlanningState(TypedDict):
     【用途】前端 Planning.vue 页面实时显示进度
     """
 
-    error: Optional[str]
+    error: str | None
     """
     【字段作用】如果工作流失败，记录错误信息。
 
     【用途】调试和前端错误提示
     """
 
-    human_decisions: Dict[str, Any]
+    human_decisions: dict[str, Any]
     """
     【字段作用】人机协同节点的用户决策缓存。
 
@@ -269,7 +269,7 @@ class TravelPlanningState(TypedDict):
     # ==================== 第六类：行程迭代修订专用字段 ====================
     # 用于支持用户基于已有行程提交反馈并生成新版本
 
-    previous_plan: Optional[TripPlan]
+    previous_plan: TripPlan | None
     """
     【字段作用】当前修订所基于的上一个版本行程。
 
@@ -285,7 +285,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node、patch_plan_node
     """
 
-    structured_feedback: Optional[StructuredFeedback]
+    structured_feedback: StructuredFeedback | None
     """
     【字段作用】FeedbackExtractorAgent 提取的结构化约束。
 
@@ -300,7 +300,7 @@ class TravelPlanningState(TypedDict):
     【取值】"initial" / "patch" / "full"
     """
 
-    parent_revision_id: Optional[int]
+    parent_revision_id: int | None
     """
     【字段作用】本次修订所基于的父版本 ID。
 
@@ -308,7 +308,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】finalize_node（创建新版本时）
     """
 
-    feedback_day_index: Optional[int]
+    feedback_day_index: int | None
     """
     【字段作用】用户提交反馈时针对的天数。
 
@@ -316,7 +316,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】feedback_extractor_node
     """
 
-    feedback_tags: List[str]
+    feedback_tags: list[str]
     """
     【字段作用】用户提交反馈时选择的快捷标签。
 
@@ -330,7 +330,7 @@ class TravelPlanningState(TypedDict):
     # 原有单数字段（attractions/hotels/restaurants/weather/rag_context/route_matrix）
     # 仍保留并填主城市数据，保证单城链路与修订链路行为不变。
 
-    cities: List[str]
+    cities: list[str]
     """
     【字段作用】按出发顺序排列的有序城市名列表。
 
@@ -338,7 +338,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】city_gather_node（按城市 fan-out）、route_multi_node、planner_agent_node（多城分支）
     """
 
-    city_days: Dict[str, int]
+    city_days: dict[str, int]
     """
     【字段作用】城市 → 停留天数的映射。
 
@@ -346,7 +346,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（多城分支按天数分段编排 day_plans）
     """
 
-    attractions_by_city: Dict[str, List[Attraction]]
+    attractions_by_city: dict[str, list[Attraction]]
     """
     【字段作用】城市 → 候选景点列表。
 
@@ -354,7 +354,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】route_multi_node（注入该城景点算路线）、planner_agent_node（多城分支）
     """
 
-    hotels_by_city: Dict[str, List[Hotel]]
+    hotels_by_city: dict[str, list[Hotel]]
     """
     【字段作用】城市 → 候选酒店列表。
 
@@ -362,7 +362,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（多城分支）
     """
 
-    restaurants_by_city: Dict[str, List[Meal]]
+    restaurants_by_city: dict[str, list[Meal]]
     """
     【字段作用】城市 → 候选餐厅列表。
 
@@ -370,7 +370,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（多城分支）
     """
 
-    weather_by_city: Dict[str, List[WeatherInfo]]
+    weather_by_city: dict[str, list[WeatherInfo]]
     """
     【字段作用】城市 → 旅行期间每日天气列表。
 
@@ -378,7 +378,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（多城分支按天映射城市天气）
     """
 
-    rag_by_city: Dict[str, str]
+    rag_by_city: dict[str, str]
     """
     【字段作用】城市 → RAG 检索到的城市攻略上下文。
 
@@ -386,7 +386,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（多城分支提示词）
     """
 
-    route_matrix_by_city: Dict[str, Dict[str, Any]]
+    route_matrix_by_city: dict[str, dict[str, Any]]
     """
     【字段作用】城市 → 该城景点间路线矩阵（结构与单城 route_matrix 一致）。
 
@@ -394,7 +394,7 @@ class TravelPlanningState(TypedDict):
     【谁读取】planner_agent_node（多城分支按天所在城市取矩阵补地图数据）
     """
 
-    intercity_legs: List[Dict[str, Any]]
+    intercity_legs: list[dict[str, Any]]
     """
     【字段作用】相邻城市对的大交通信息，按出发顺序排列。
 

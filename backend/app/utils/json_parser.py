@@ -15,7 +15,7 @@ JSON 安全解析与修复工具模块。
 
 import json
 import re
-from typing import Any, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 from loguru import logger
 from pydantic import BaseModel, ValidationError
@@ -23,7 +23,7 @@ from pydantic import BaseModel, ValidationError
 T = TypeVar("T", bound=BaseModel)
 
 
-def extract_json_from_text(text: str) -> Optional[str]:
+def extract_json_from_text(text: str) -> str | None:
     """
     从文本中提取 JSON 字符串。
 
@@ -53,7 +53,7 @@ def extract_json_from_text(text: str) -> Optional[str]:
     return None
 
 
-def safe_json_parse(text: str) -> Optional[Any]:
+def safe_json_parse(text: str) -> Any | None:
     """
     安全解析 JSON 字符串。
 
@@ -79,7 +79,7 @@ def safe_json_parse(text: str) -> Optional[Any]:
     return None
 
 
-def try_repair_json(text: str) -> Optional[str]:
+def try_repair_json(text: str) -> str | None:
     """
     尝试修复常见的 LLM JSON 输出问题。
 
@@ -106,7 +106,7 @@ def try_repair_json(text: str) -> Optional[str]:
     return repaired if repaired else None
 
 
-def parse_llm_json(text: str, model_class: Type[T]) -> Optional[T]:
+def parse_llm_json(text: str, model_class: type[T]) -> T | None:
     """
     解析 LLM 输出并校验为指定 Pydantic 模型。
 

@@ -12,7 +12,7 @@ backend/app/api/routes/payment.py
 - SQLAlchemy：订单持久化
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -27,7 +27,7 @@ from app.services.payment_service import PaymentService
 router = APIRouter()
 
 
-def _order_to_dict(order: Order) -> Dict[str, Any]:
+def _order_to_dict(order: Order) -> dict[str, Any]:
     """
     将订单对象转换为响应字典。
 
@@ -103,7 +103,7 @@ async def list_orders(
         .where(Order.user_id == current_user.id, Order.plan_id == plan_id)
         .order_by(Order.created_at.desc())
     )
-    orders: List[Order] = list(result.scalars().all())
+    orders: list[Order] = list(result.scalars().all())
 
     return StandardResponse(
         success=True, message="查询成功", data={"orders": [_order_to_dict(o) for o in orders]}
@@ -140,7 +140,7 @@ async def get_order(
 
 @router.post("/notify", response_model=StandardResponse)
 async def payment_notify(
-    order_id: str, notify_data: Dict[str, Any], session: AsyncSession = Depends(get_db)
+    order_id: str, notify_data: dict[str, Any], session: AsyncSession = Depends(get_db)
 ):
     """
     支付回调通知接口（沙箱）。

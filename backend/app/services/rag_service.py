@@ -19,7 +19,8 @@ RAG（检索增强生成）服务模块。
 import asyncio
 import os
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from loguru import logger
@@ -62,7 +63,7 @@ class RAGService:
             self.client = QdrantClient(":memory:")
         self.collection_name = settings.qdrant_collection
         # 延迟加载 embedding 模型，避免服务启动时阻塞
-        self._embedding_model: Optional[Any] = None
+        self._embedding_model: Any | None = None
         # 嵌入模型不可用标记（离线且无本地缓存时置 True），
         # 置 True 后所有向量检索/写入自动降级，规划主流程不受影响
         self._embedding_failed = False
@@ -121,7 +122,7 @@ class RAGService:
                 vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
 
-    def split_text(self, text: str) -> List[str]:
+    def split_text(self, text: str) -> list[str]:
         """
         将长文本切分为适合向量化的片段。
 
@@ -133,7 +134,7 @@ class RAGService:
         """
         return self.text_splitter.split_text(text)
 
-    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """
         将文本列表编码为向量。
 
@@ -145,7 +146,7 @@ class RAGService:
         """
         return self.embedding_model.encode(texts).tolist()
 
-    def add_documents(self, documents: List[Dict[str, Any]], city: Optional[str] = None) -> None:
+    def add_documents(self, documents: list[dict[str, Any]], city: str | None = None) -> None:
         """
         将文档添加到向量库。
 
@@ -181,8 +182,8 @@ class RAGService:
             self.client.upsert(collection_name=self.collection_name, points=points)
 
     def search(
-        self, query: str, city: Optional[str] = None, top_k: int = None
-    ) -> List[Dict[str, Any]]:
+        self, query: str, city: str | None = None, top_k: int = None
+    ) -> list[dict[str, Any]]:
         """
         根据查询文本检索相关文档片段。
 
@@ -229,12 +230,12 @@ class RAGService:
     async def search_or_fetch(
         self,
         query: str,
-        city: Optional[str] = None,
+        city: str | None = None,
         source_type: str = "attraction",
-        external_fetcher: Optional[Callable] = None,
+        external_fetcher: Callable | None = None,
         min_score: float = 0.75,
         top_k: int = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         先查缓存，未命中则调外部搜索，结果存入缓存后返回。
 
@@ -334,12 +335,12 @@ class RAGService:
 
     async def batch_search_or_fetch(
         self,
-        queries: List[str],
-        city: Optional[str] = None,
+        queries: list[str],
+        city: str | None = None,
         source_type: str = "attraction",
-        external_fetcher: Optional[Callable] = None,
+        external_fetcher: Callable | None = None,
         min_score: float = 0.75,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         批量搜索：先查缓存，未命中则外部搜索。
 
@@ -364,7 +365,7 @@ class RAGService:
 # 必须全局复用同一个实例：
 # - 避免每次调用都重复尝试连接 Qdrant（远程不可用时每次白等 3 秒超时）；
 # - 避免内存模式 Qdrant 每个实例各一份空缓存，导致缓存永不生效。
-_rag_service_instance: Optional[RAGService] = None
+_rag_service_instance: RAGService | None = None
 
 
 def get_rag_service() -> RAGService:

@@ -13,7 +13,6 @@ FastAPI 依赖注入模块。
 - SQLAlchemy：AsyncSession
 """
 
-from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -30,7 +29,7 @@ oauth2_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_db),
 ) -> User:
     """

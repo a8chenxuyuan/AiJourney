@@ -15,7 +15,7 @@ pytest 共享夹具与配置。
 
 import os
 import uuid
-from typing import Callable, Dict, Tuple
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -41,7 +41,7 @@ def client() -> httpx.Client:
         yield c
 
 
-def register_and_login(client: httpx.Client) -> Tuple[Dict[str, str], str]:
+def register_and_login(client: httpx.Client) -> tuple[dict[str, str], str]:
     """
     注册一个随机新用户并登录，返回 (带认证的请求头, 用户名)。
 

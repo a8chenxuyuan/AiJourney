@@ -16,7 +16,7 @@ Agent 执行过程路由模块。
 import asyncio
 import json
 import time
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -41,8 +41,8 @@ _sse_bearer_scheme = HTTPBearer(auto_error=False)
 
 async def _get_current_user_for_sse(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_sse_bearer_scheme),
-    token: Optional[str] = Query(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_sse_bearer_scheme),
+    token: str | None = Query(
         None, description="SSE 无法设置请求头时，可通过 URL 查询参数传入 JWT Token"
     ),
     session: AsyncSession = Depends(get_db),

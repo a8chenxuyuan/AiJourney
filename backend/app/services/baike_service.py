@@ -18,7 +18,7 @@ backend/app/services/baike_service.py
 import asyncio
 import hashlib
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -61,8 +61,8 @@ class BaikeService:
 
     def __init__(self):
         """初始化服务，创建延迟会话和内存缓存。"""
-        self._cache: Dict[str, Dict[str, Any]] = {}
-        self._client: Optional[httpx.AsyncClient] = None
+        self._cache: dict[str, dict[str, Any]] = {}
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """获取或创建 httpx 异步客户端（follow_redirects 对齐 aiohttp GET 默认行为）。"""
@@ -77,12 +77,12 @@ class BaikeService:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
 
-    def _cache_key(self, query: str, city: Optional[str] = None) -> str:
+    def _cache_key(self, query: str, city: str | None = None) -> str:
         """生成缓存键。"""
         key = f"{city or ''}:{query}"
         return hashlib.md5(key.encode()).hexdigest()
 
-    def _generate_item_name_candidates(self, query: str) -> List[str]:
+    def _generate_item_name_candidates(self, query: str) -> list[str]:
         """
         生成候选词条名。
 
@@ -125,8 +125,8 @@ class BaikeService:
         return any(kw.lower() in text_lower for kw in query_keywords)
 
     async def search(
-        self, query: str, city: Optional[str] = None, use_cache: bool = True
-    ) -> Dict[str, Any]:
+        self, query: str, city: str | None = None, use_cache: bool = True
+    ) -> dict[str, Any]:
         """
         搜索外部知识并返回摘要。
 
@@ -183,8 +183,8 @@ class BaikeService:
         return result
 
     async def _search_baidu(
-        self, query: str, city: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, query: str, city: str | None = None
+    ) -> dict[str, Any] | None:
         """通过百度百科搜索词条。"""
         client = await self._get_client()
         candidates = self._generate_item_name_candidates(query)
@@ -208,7 +208,7 @@ class BaikeService:
 
         return None
 
-    def _extract_baidu_summary(self, html: str) -> Optional[str]:
+    def _extract_baidu_summary(self, html: str) -> str | None:
         """从百度百科 HTML 提取摘要。"""
         soup = BeautifulSoup(html, "html.parser")
         selectors = [
@@ -232,8 +232,8 @@ class BaikeService:
         return None
 
     async def _search_bing(
-        self, query: str, city: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, query: str, city: str | None = None
+    ) -> dict[str, Any] | None:
         """通过必应搜索获取摘要。"""
         # 构造多个搜索查询变体，提高命中率
         queries = []
@@ -273,7 +273,7 @@ class BaikeService:
 
         return None
 
-    def _extract_bing_summary(self, html: str, query: str) -> Optional[Dict[str, Any]]:
+    def _extract_bing_summary(self, html: str, query: str) -> dict[str, Any] | None:
         """从必应搜索结果页提取最相关的摘要。"""
         soup = BeautifulSoup(html, "html.parser")
         results = soup.select(".b_algo")[:5]
@@ -336,15 +336,15 @@ class BaikeService:
         return text
 
     async def batch_search(
-        self, queries: List[str], city: Optional[str] = None, use_cache: bool = True
-    ) -> List[Dict[str, Any]]:
+        self, queries: list[str], city: str | None = None, use_cache: bool = True
+    ) -> list[dict[str, Any]]:
         """批量搜索外部知识。"""
         tasks = [self.search(q, city, use_cache) for q in queries]
         return await asyncio.gather(*tasks)
 
 
 # 单例模式
-_baike_service: Optional[BaikeService] = None
+_baike_service: BaikeService | None = None
 
 
 def get_baike_service() -> BaikeService:

@@ -21,14 +21,14 @@ Agent 节点本身不直接调 API，而是调用这里的工具函数。
 """
 
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.services.amap_service import AmapService
 
 
 async def search_attractions(
     city: str, keyword: str = "景点", page_size: int = 10
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     【函数作用】根据关键词和城市搜索景点 POI。
 
@@ -72,7 +72,7 @@ async def search_attractions(
 
 async def search_hotels(
     city: str, keyword: str = "酒店", page_size: int = 6
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     【函数作用】根据城市搜索酒店 POI。
 
@@ -99,7 +99,7 @@ async def search_hotels(
 
 async def search_restaurants(
     city: str, keyword: str = "餐厅", page_size: int = 15
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     【函数作用】根据城市搜索真实餐厅 POI。
 
@@ -126,7 +126,7 @@ async def search_restaurants(
     return [_enrich_restaurant(poi) for poi in pois]
 
 
-async def get_weather(city: str) -> Dict[str, Any]:
+async def get_weather(city: str) -> dict[str, Any]:
     """
     【函数作用】查询指定城市的天气信息。
 
@@ -168,7 +168,7 @@ async def get_weather(city: str) -> Dict[str, Any]:
     return await service.get_weather(city, forecast=True)
 
 
-async def plan_route(origin: str, destination: str, mode: str = "driving") -> Dict[str, Any]:
+async def plan_route(origin: str, destination: str, mode: str = "driving") -> dict[str, Any]:
     """
     【函数作用】规划从起点到终点的路线。
 
@@ -201,7 +201,7 @@ async def plan_route(origin: str, destination: str, mode: str = "driving") -> Di
     return await service.plan_route(origin, destination, mode)
 
 
-def search_rag_context(query: str, city: Optional[str] = None, top_k: int = 5) -> str:
+def search_rag_context(query: str, city: str | None = None, top_k: int = 5) -> str:
     """
     【函数作用】从 RAG 知识库检索城市攻略或景点背景。
 
@@ -298,7 +298,7 @@ def haversine_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> fl
 # 因为高德 API 不直接提供建议游玩时长、门票价格、酒店价格等信息
 
 
-def _enrich_attraction(poi: Dict[str, Any]) -> Dict[str, Any]:
+def _enrich_attraction(poi: dict[str, Any]) -> dict[str, Any]:
     """
     【函数作用】为高德 POI 补充景点相关默认字段。
 
@@ -360,7 +360,7 @@ def _enrich_attraction(poi: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _enrich_hotel(poi: Dict[str, Any]) -> Dict[str, Any]:
+def _enrich_hotel(poi: dict[str, Any]) -> dict[str, Any]:
     """
     【函数作用】为高德 POI 补充酒店相关默认字段。
 
@@ -408,7 +408,7 @@ def _enrich_hotel(poi: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _enrich_restaurant(poi: Dict[str, Any]) -> Dict[str, Any]:
+def _enrich_restaurant(poi: dict[str, Any]) -> dict[str, Any]:
     """
     【函数作用】为高德 POI 补充餐厅相关字段。
 

@@ -16,7 +16,7 @@ backend/app/tasks.py
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 from sqlalchemy import select
@@ -36,8 +36,8 @@ from app.utils.queue import enqueue_revision_task
 # 1. 用 per-plan_id 的 asyncio.Lock 做互斥，任务开始前非阻塞检查，已占用则放弃；
 # 2. 用 _revision_running 记录"正在跑的 revision 任务来源"，便于日志排查；
 # 3. 任务结束（无论成功 / 失败 / 异常）都必须清理 running 标记，锁随 async with 释放。
-_revision_locks: Dict[str, asyncio.Lock] = {}
-_revision_running: Dict[str, str] = {}  # plan_id -> 来源标识（feedback/regenerate）
+_revision_locks: dict[str, asyncio.Lock] = {}
+_revision_running: dict[str, str] = {}  # plan_id -> 来源标识（feedback/regenerate）
 
 
 def _get_revision_lock(plan_id: str) -> asyncio.Lock:
@@ -77,10 +77,10 @@ async def run_revision_task(
     parent_revision_id: int,
     previous_plan: dict,
     revision_notes: str,
-    feedback_id: Optional[int],
-    feedback_day_index: Optional[int],
-    feedback_tags: List[str],
-    structured_feedback: Optional[dict] = None,
+    feedback_id: int | None,
+    feedback_day_index: int | None,
+    feedback_tags: list[str],
+    structured_feedback: dict | None = None,
     source: str = "feedback",
 ) -> None:
     """
@@ -245,8 +245,8 @@ async def run_recalculate_task(
 
 
 async def run_crawler_task(
-    ctx: dict, cities: Optional[List[str]], max_pages: Optional[int]
-) -> Dict:
+    ctx: dict, cities: list[str] | None, max_pages: int | None
+) -> dict:
     """
     爬虫任务：抓取城市攻略并入向量库（由 Worker 进程执行）。
 
@@ -270,7 +270,7 @@ async def run_crawler_task(
 # ==================== 天气联动检查任务（出发前提醒 + 自动改线） ====================
 
 
-def _is_rainy(forecast_day: Dict[str, Any]) -> bool:
+def _is_rainy(forecast_day: dict[str, Any]) -> bool:
     """
     纯函数：判断单日预报是否为雨天（白天或夜间天气含"雨"字）。
 
@@ -285,7 +285,7 @@ def _is_rainy(forecast_day: Dict[str, Any]) -> bool:
     )
 
 
-def _find_rainy_dates(forecasts: List[Dict[str, Any]], start_date: str, end_date: str) -> List[str]:
+def _find_rainy_dates(forecasts: list[dict[str, Any]], start_date: str, end_date: str) -> list[str]:
     """
     纯函数：从高德预报中筛出行程期间（含起止日）内的雨天日期。
 
@@ -308,7 +308,7 @@ def _find_rainy_dates(forecasts: List[Dict[str, Any]], start_date: str, end_date
     return sorted(rainy)
 
 
-def _format_rainy_revision_note(rainy_dates: List[str], start_date: str) -> str:
+def _format_rainy_revision_note(rainy_dates: list[str], start_date: str) -> str:
     """
     纯函数：生成"雨天自动改线"的修订说明文本（带第 X 天标注）。
 
@@ -331,7 +331,7 @@ def _format_rainy_revision_note(rainy_dates: List[str], start_date: str) -> str:
     return f"{joined}预报有雨，请将当天户外景点替换为博物馆/美术馆等室内景点，并适当调整顺序"
 
 
-async def run_weather_check_task(ctx: dict) -> Dict[str, int]:
+async def run_weather_check_task(ctx: dict) -> dict[str, int]:
     """
     出发前天气检查任务（每日 8 点定时执行，Worker 启动时也执行一次）。
 

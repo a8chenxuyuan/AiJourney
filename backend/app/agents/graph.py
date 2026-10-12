@@ -36,8 +36,9 @@ LangGraph 的默认序列化机制在处理包含大量 Pydantic 对象的复杂
 """
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 from loguru import logger
@@ -72,7 +73,7 @@ from app.models.db_models import TripPlanDB
 from app.models.schemas import AgentLog, Attraction, TripPlan, TripRequest
 
 # 节点函数类型：接收状态，返回状态更新字典
-NodeFunc = Callable[[TravelPlanningState], Awaitable[Dict[str, Any]]]
+NodeFunc = Callable[[TravelPlanningState], Awaitable[dict[str, Any]]]
 
 
 # ==================== 全局图实例缓存 ====================
@@ -230,7 +231,7 @@ def get_planning_graph():
 # ==================== 批次执行辅助（并行编排核心） ====================
 
 
-async def _merge_update(state: TravelPlanningState, update: Dict[str, Any]) -> None:
+async def _merge_update(state: TravelPlanningState, update: dict[str, Any]) -> None:
     """
     把节点返回的状态更新合并到主状态。
 
@@ -250,7 +251,7 @@ async def _merge_update(state: TravelPlanningState, update: Dict[str, Any]) -> N
 
 async def _run_node(
     plan_id: str, state: TravelPlanningState, step_name: str, node_func: NodeFunc
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     执行单个节点并把它产生的日志实时推送到 SSE，返回更新字典。
 
@@ -275,7 +276,7 @@ async def _run_node(
 
 
 async def _run_batches(
-    plan_id: str, state: TravelPlanningState, batches: List[List[Tuple[str, NodeFunc]]]
+    plan_id: str, state: TravelPlanningState, batches: list[list[tuple[str, NodeFunc]]]
 ) -> None:
     """
     按批次执行节点编排：批内节点并发执行（asyncio.gather），批间顺序执行。
@@ -318,7 +319,7 @@ async def _run_batches(
 # - 单城场景下行为与原批次完全一致（提示词、日志、字段均保持原样）。
 
 
-def _split_cities(state: TravelPlanningState) -> Tuple[List[str], Dict[str, int]]:
+def _split_cities(state: TravelPlanningState) -> tuple[list[str], dict[str, int]]:
     """
     从请求中解析城市序列与停留天数。
 
@@ -345,7 +346,7 @@ def _split_cities(state: TravelPlanningState) -> Tuple[List[str], Dict[str, int]
     return [request.city], {request.city: total_days}
 
 
-async def split_cities_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def split_cities_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】多城联游城市拆分节点（_split_cities 的节点适配包装）。
 
@@ -394,7 +395,7 @@ def _build_city_scoped_state(state: TravelPlanningState, city: str) -> TravelPla
     return scoped
 
 
-def _merge_node_updates(updates: List[Any]) -> Dict[str, Any]:
+def _merge_node_updates(updates: list[Any]) -> dict[str, Any]:
     """
     把一组节点更新字典按 _merge_update 语义合并为单个更新字典。
 
@@ -407,8 +408,8 @@ def _merge_node_updates(updates: List[Any]) -> Dict[str, Any]:
     Returns:
         Tuple[Dict[str, Any], Optional[BaseException]]: (合并后的更新字典, 首个异常或 None)。
     """
-    merged: Dict[str, Any] = {}
-    first_error: Optional[BaseException] = None
+    merged: dict[str, Any] = {}
+    first_error: BaseException | None = None
     for update in updates:
         if isinstance(update, BaseException):
             if first_error is None:
@@ -422,7 +423,7 @@ def _merge_node_updates(updates: List[Any]) -> Dict[str, Any]:
     return merged, first_error
 
 
-async def city_gather_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def city_gather_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】多城信息收集节点（单节点批次，内部 fan-out / fan-in）。
 
@@ -440,7 +441,7 @@ async def city_gather_node(state: TravelPlanningState) -> Dict[str, Any]:
     plan_id = state["plan_id"]
     cities = state.get("cities") or [state["request"].city]
 
-    async def _collect_for_city(city: str) -> List[Any]:
+    async def _collect_for_city(city: str) -> list[Any]:
         """并发执行单个城市的 5 个信息收集节点，返回更新/异常列表。"""
         scoped = _build_city_scoped_state(state, city)
         # 单城时节点名保持原样，多城时附加城市后缀便于日志排查
@@ -456,13 +457,13 @@ async def city_gather_node(state: TravelPlanningState) -> Dict[str, Any]:
 
     city_updates = await asyncio.gather(*(_collect_for_city(city) for city in cities))
 
-    attractions_by_city: Dict[str, Any] = {}
-    hotels_by_city: Dict[str, Any] = {}
-    restaurants_by_city: Dict[str, Any] = {}
-    weather_by_city: Dict[str, Any] = {}
-    rag_by_city: Dict[str, str] = {}
-    all_logs: List[Any] = []
-    first_error: Optional[BaseException] = None
+    attractions_by_city: dict[str, Any] = {}
+    hotels_by_city: dict[str, Any] = {}
+    restaurants_by_city: dict[str, Any] = {}
+    weather_by_city: dict[str, Any] = {}
+    rag_by_city: dict[str, str] = {}
+    all_logs: list[Any] = []
+    first_error: BaseException | None = None
 
     for city, updates in zip(cities, city_updates):
         merged, city_error = _merge_node_updates(updates)
@@ -504,7 +505,7 @@ async def city_gather_node(state: TravelPlanningState) -> Dict[str, Any]:
 
 def _city_representative_point(
     state: TravelPlanningState, city: str
-) -> Optional[Tuple[float, float]]:
+) -> tuple[float, float] | None:
     """
     取某城市的代表坐标（该城候选景点的几何中心），用于城际大交通估算。
 
@@ -551,7 +552,7 @@ def _build_intercity_advice(from_city: str, to_city: str, distance_m: float) -> 
 
 async def _compute_one_intercity_leg(
     state: TravelPlanningState, from_city: str, to_city: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     计算一对相邻城市间的大交通信息（绝不抛异常）。
 
@@ -598,7 +599,7 @@ async def _compute_one_intercity_leg(
     }
 
 
-async def route_multi_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def route_multi_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】多城路线规划节点。
 
@@ -623,7 +624,7 @@ async def route_multi_node(state: TravelPlanningState) -> Dict[str, Any]:
         return update
 
     # 多城：逐城并发计算路线矩阵
-    async def _route_for_city(city: str) -> Tuple[str, Dict[str, Any], List[Any]]:
+    async def _route_for_city(city: str) -> tuple[str, dict[str, Any], list[Any]]:
         scoped = _build_city_scoped_state(state, city)
         scoped["attractions"] = (state.get("attractions_by_city") or {}).get(city, [])
         update = await route_agent_node(scoped)
@@ -634,7 +635,7 @@ async def route_multi_node(state: TravelPlanningState) -> Dict[str, Any]:
     all_logs = [log for _, _, logs in results for log in logs]
 
     # 相邻城市对的大交通（顺序计算，通常只有 1~3 段，无需并发）
-    intercity_legs: List[Dict[str, Any]] = []
+    intercity_legs: list[dict[str, Any]] = []
     for i in range(len(cities) - 1):
         leg = await _compute_one_intercity_leg(state, cities[i], cities[i + 1])
         intercity_legs.append(leg)
@@ -661,7 +662,7 @@ async def route_multi_node(state: TravelPlanningState) -> Dict[str, Any]:
 
 async def run_planning_graph(
     plan_id: str, request: TripRequest, user_id: int
-) -> Optional[TripPlan]:
+) -> TripPlan | None:
     """
     【函数作用】启动旅行规划 LangGraph 工作流。
 
@@ -741,7 +742,7 @@ async def run_planning_graph(
     # - 第二批：city_gather 单节点批次，内部对每个城市 fan-out 5 个信息收集节点
     #   （attraction / weather / hotel / food / rag），单城时与原并行批次行为完全一致；
     # - 第三批：route_multi 逐城计算路线矩阵，多城时附带城际大交通计算。
-    node_batches: List[List[Tuple[str, NodeFunc]]] = [
+    node_batches: list[list[tuple[str, NodeFunc]]] = [
         [
             ("split_cities", split_cities_node),
             ("intent_agent", intent_agent_node),
@@ -795,10 +796,10 @@ async def run_revision_graph(
     parent_revision_id: int,
     previous_plan: TripPlan,
     revision_notes: str,
-    feedback_day_index: Optional[int] = None,
-    feedback_tags: Optional[List[str]] = None,
-    structured_feedback: Optional[Any] = None,
-) -> Optional[Tuple[TripPlan, Dict[str, Any]]]:
+    feedback_day_index: int | None = None,
+    feedback_tags: list[str] | None = None,
+    structured_feedback: Any | None = None,
+) -> tuple[TripPlan, dict[str, Any]] | None:
     """
     【函数作用】启动行程修订工作流。
 
@@ -963,8 +964,8 @@ async def run_recalculate_graph(
     parent_revision_id: int,
     previous_plan: TripPlan,
     revision_notes: str,
-    day_attractions: List[Any],
-) -> Optional[TripPlan]:
+    day_attractions: list[Any],
+) -> TripPlan | None:
     """
     【函数作用】用户手动调整某天景点顺序后的"轻量重算"工作流。
 
@@ -993,12 +994,12 @@ async def run_recalculate_graph(
         Attraction(**a) if isinstance(a, dict) else a for a in (day_attractions or [])
     ]
     # 酒店按名称去重（多天可能住同一家）
-    hotels_by_name: Dict[str, Any] = {}
+    hotels_by_name: dict[str, Any] = {}
     for day in previous_plan.day_plans:
         if day.hotel and day.hotel.name not in hotels_by_name:
             hotels_by_name[day.hotel.name] = day.hotel
     # 餐厅从每日三餐中去重
-    restaurants_by_name: Dict[str, Any] = {}
+    restaurants_by_name: dict[str, Any] = {}
     for day in previous_plan.day_plans:
         for meal in day.meals:
             if meal.name not in restaurants_by_name:
@@ -1053,7 +1054,7 @@ async def run_recalculate_graph(
         route_update = await _run_node(plan_id, scoped_route_state, "route_agent", route_agent_node)
         await _merge_update(state, route_update)
 
-        node_batches: List[List[Tuple[str, NodeFunc]]] = [
+        node_batches: list[list[tuple[str, NodeFunc]]] = [
             [("planner_agent", planner_agent_node)],
             [("budget_agent", budget_agent_node)],
             [("human_in_the_loop", human_in_the_loop_node)],

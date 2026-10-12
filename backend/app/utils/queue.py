@@ -13,7 +13,7 @@ ARQ 任务队列封装模块。
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
@@ -23,7 +23,7 @@ from loguru import logger
 from app.config import settings
 
 # ARQ 连接池单例（懒加载，进程内复用）
-_arq_pool: Optional[ArqRedis] = None
+_arq_pool: ArqRedis | None = None
 _pool_lock = asyncio.Lock()
 
 # Redis 保活补丁是否已应用（幂等标记）
@@ -109,10 +109,10 @@ async def enqueue_revision_task(
     parent_revision_id: int,
     previous_plan: dict,
     revision_notes: str,
-    feedback_id: Optional[int],
-    feedback_day_index: Optional[int],
-    feedback_tags: List[str],
-    structured_feedback: Optional[dict] = None,
+    feedback_id: int | None,
+    feedback_day_index: int | None,
+    feedback_tags: list[str],
+    structured_feedback: dict | None = None,
     source: str = "feedback",
 ) -> None:
     """
@@ -184,7 +184,7 @@ async def enqueue_recalculate_task(
     logger.info(f"[Queue] 重算任务已入队 plan_id={plan_id}")
 
 
-async def enqueue_crawler_task(cities: Optional[List[str]], max_pages: Optional[int]) -> str:
+async def enqueue_crawler_task(cities: list[str] | None, max_pages: int | None) -> str:
     """
     投递爬虫任务到队列，返回任务 ID 供状态查询。
 
@@ -201,7 +201,7 @@ async def enqueue_crawler_task(cities: Optional[List[str]], max_pages: Optional[
     return job.job_id
 
 
-async def get_job_status(job_id: str) -> Dict[str, Any]:
+async def get_job_status(job_id: str) -> dict[str, Any]:
     """
     查询 arq 任务状态与结果。
 

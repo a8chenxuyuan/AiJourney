@@ -14,7 +14,7 @@ Agent 执行日志持久化模块。
 - SQLAlchemy：异步会话写入与查询
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from sqlalchemy import select
 
@@ -22,7 +22,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.db_models import PlanLogDB
 
 
-async def put_log(plan_id: str, log: Dict[str, Any]) -> None:
+async def put_log(plan_id: str, log: dict[str, Any]) -> None:
     """
     将一条 Agent 执行日志写入 plan_logs 表。
 
@@ -35,7 +35,7 @@ async def put_log(plan_id: str, log: Dict[str, Any]) -> None:
         await session.commit()
 
 
-async def get_history(plan_id: str) -> List[Dict[str, Any]]:
+async def get_history(plan_id: str) -> list[dict[str, Any]]:
     """
     按写入顺序读取指定 plan_id 的全部日志（含结束标记）。
 
@@ -52,7 +52,7 @@ async def get_history(plan_id: str) -> List[Dict[str, Any]]:
         return [row.log_json for row in result.scalars().all()]
 
 
-async def get_logs_after(plan_id: str, last_log_id: int) -> List[Any]:
+async def get_logs_after(plan_id: str, last_log_id: int) -> list[Any]:
     """
     增量读取指定 plan_id 中 ID 大于 last_log_id 的日志行（SSE 轮询用）。
 

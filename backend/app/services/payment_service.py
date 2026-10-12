@@ -15,7 +15,7 @@ backend/app/services/payment_service.py
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,7 +48,7 @@ class PaymentService:
         plan_id: str,
         amount: float,
         payment_method: str = "alipay",
-    ) -> Optional[Order]:
+    ) -> Order | None:
         """
         创建支付订单。
 
@@ -82,7 +82,7 @@ class PaymentService:
         return order
 
     @staticmethod
-    def build_payment_params(order: Order) -> Dict[str, Any]:
+    def build_payment_params(order: Order) -> dict[str, Any]:
         """
         构建第三方支付参数（沙箱）。
 
@@ -105,8 +105,8 @@ class PaymentService:
 
     @staticmethod
     async def process_payment_notification(
-        session: AsyncSession, order_id: str, third_party_data: Dict[str, Any]
-    ) -> Optional[Order]:
+        session: AsyncSession, order_id: str, third_party_data: dict[str, Any]
+    ) -> Order | None:
         """
         处理支付回调通知。
 

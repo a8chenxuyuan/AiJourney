@@ -16,7 +16,7 @@ backend/app/services/crawler_service.py
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from app.config import settings
 from app.services.rag_service import get_rag_service
@@ -37,8 +37,8 @@ class CrawlerService:
         self.rag_service = get_rag_service()
 
     async def crawl_city_guides(
-        self, cities: List[str] = None, max_pages: int = None
-    ) -> Dict[str, Any]:
+        self, cities: list[str] = None, max_pages: int = None
+    ) -> dict[str, Any]:
         """
         抓取城市攻略数据。
 
@@ -77,7 +77,7 @@ class CrawlerService:
             "timestamp": datetime.now().isoformat(),
         }
 
-    async def get_task_status(self, task_id: str) -> Dict[str, Any]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any]:
         """
         查询爬虫任务状态。
 

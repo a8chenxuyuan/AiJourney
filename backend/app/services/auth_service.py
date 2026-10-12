@@ -12,7 +12,6 @@ backend/app/services/auth_service.py
 - passlib / python-jose（通过 utils/security 间接使用）
 """
 
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +29,7 @@ class AuthService:
     """
 
     @staticmethod
-    async def get_user_by_username(session: AsyncSession, username: str) -> Optional[User]:
+    async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
         """
         根据用户名查询用户。
 
@@ -45,7 +44,7 @@ class AuthService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]:
+    async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
         """
         根据邮箱查询用户。
 
@@ -60,7 +59,7 @@ class AuthService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[User]:
+    async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
         """
         根据用户 ID 查询用户。
 
@@ -103,7 +102,7 @@ class AuthService:
     @staticmethod
     async def authenticate_user(
         session: AsyncSession, username: str, password: str
-    ) -> Optional[User]:
+    ) -> User | None:
         """
         校验用户名和密码是否匹配。
 

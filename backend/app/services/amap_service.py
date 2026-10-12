@@ -16,7 +16,7 @@ backend/app/services/amap_service.py
   - 路径规划 /v3/direction/{driving|walking|transit|riding}
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -41,7 +41,7 @@ class AmapService:
         if not settings.amap_api_key:
             raise ValueError("未配置 AMAP_API_KEY，请在 .env 文件中设置")
 
-    async def _get(self, path: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         """
         发送 GET 请求到高德 API。
 
@@ -71,8 +71,8 @@ class AmapService:
         return data
 
     async def search_poi(
-        self, keyword: str, city: str, page_size: int = 10, poi_type: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, keyword: str, city: str, page_size: int = 10, poi_type: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         根据关键词和城市搜索 POI（兴趣点）。
 
@@ -128,7 +128,7 @@ class AmapService:
 
         return results
 
-    async def get_weather(self, city: str, forecast: bool = True) -> Dict[str, Any]:
+    async def get_weather(self, city: str, forecast: bool = True) -> dict[str, Any]:
         """
         查询指定城市的天气信息。
 
@@ -189,7 +189,7 @@ class AmapService:
 
     async def plan_route(
         self, origin: str, destination: str, mode: str = "driving"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         规划从起点到终点的路线。
 
@@ -262,7 +262,7 @@ class AmapService:
             return 0.0, 0.0
 
     @staticmethod
-    def _parse_tel(value: Any) -> Optional[str]:
+    def _parse_tel(value: Any) -> str | None:
         """
         解析电话字段为字符串。
 
@@ -283,7 +283,7 @@ class AmapService:
         return str(value).strip() or None
 
     @staticmethod
-    def _parse_rating(value: Any) -> Optional[float]:
+    def _parse_rating(value: Any) -> float | None:
         """
         解析评分字符串为浮点数。
 
@@ -301,7 +301,7 @@ class AmapService:
             return None
 
     @staticmethod
-    def _parse_photos(photos: Any) -> List[str]:
+    def _parse_photos(photos: Any) -> list[str]:
         """
         解析高德 POI 返回的图片字段为 URL 列表。
 
@@ -324,7 +324,7 @@ class AmapService:
         return result
 
     @staticmethod
-    def _decode_polyline(steps: List[Dict[str, Any]]) -> List[Dict[str, float]]:
+    def _decode_polyline(steps: list[dict[str, Any]]) -> list[dict[str, float]]:
         """
         将高德路径 steps 中的 polyline 解码为坐标点列表。
 

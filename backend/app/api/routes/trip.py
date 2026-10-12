@@ -18,7 +18,7 @@ import asyncio
 import json
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
@@ -329,7 +329,7 @@ async def add_favorite(
 
 @router.get("/favorites", response_model=StandardResponse)
 async def list_favorites(
-    city: Optional[str] = None,
+    city: str | None = None,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
@@ -393,7 +393,7 @@ async def list_favorite_cities(
         .order_by(Favorite.created_at.desc())
     )
     # 按收藏时间倒序去重，保留最近收藏的城市优先
-    cities: List[str] = []
+    cities: list[str] = []
     for (city,) in result.all():
         if city and city not in cities:
             cities.append(city)
@@ -498,11 +498,11 @@ async def read_all_notifications(
 
 
 def _score_recommendation_cities(
-    favorite_cities: List[str],
-    memory_cities: List[str],
-    history_cities: List[str],
-    knowledge_cities: Optional[List[str]] = None,
-) -> List[Tuple[str, Dict[str, Any]]]:
+    favorite_cities: list[str],
+    memory_cities: list[str],
+    history_cities: list[str],
+    knowledge_cities: list[str] | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
     """
     纯函数：多来源加权打分，返回 [(city, 统计信息)]，按分数降序排列。
 
@@ -511,7 +511,7 @@ def _score_recommendation_cities(
     统计信息含各来源计数与首次出现顺序，供路由层生成 reason / source。
     排序规则：分数降序 → 主来源优先级（favorites/memory/history/knowledge）→ 首现顺序。
     """
-    stats: Dict[str, Dict[str, Any]] = {}
+    stats: dict[str, dict[str, Any]] = {}
 
     def _add(city: str, source: str, weight: int) -> None:
         if not city:
@@ -539,21 +539,21 @@ def _score_recommendation_cities(
 
     source_priority = {"favorites": 0, "memory": 1, "history": 2, "knowledge": 3}
 
-    def _dominant_source(info: Dict[str, Any]) -> str:
+    def _dominant_source(info: dict[str, Any]) -> str:
         """取计数最多的来源（并列时取优先级更高的）。"""
         return min(
             (s for s in source_priority if info[s] > 0),
             key=lambda s: (-info[s], source_priority[s]),
         )
 
-    def _sort_key(item: Tuple[str, Dict[str, Any]]) -> Tuple[int, int, int]:
+    def _sort_key(item: tuple[str, dict[str, Any]]) -> tuple[int, int, int]:
         city, info = item
         return (-info["score"], source_priority[_dominant_source(info)], info["first_seen"])
 
     return sorted(stats.items(), key=_sort_key)
 
 
-def _build_recommendation_reason(info: Dict[str, Any]) -> Tuple[str, str]:
+def _build_recommendation_reason(info: dict[str, Any]) -> tuple[str, str]:
     """
     纯函数：根据来源计数生成推荐理由与来源标识。
 
@@ -569,7 +569,7 @@ def _build_recommendation_reason(info: Dict[str, Any]) -> Tuple[str, str]:
     return "知识库收录了该城市的旅行攻略", "knowledge"
 
 
-async def _collect_knowledge_cities() -> List[str]:
+async def _collect_knowledge_cities() -> list[str]:
     """
     从 Qdrant 知识库聚合已收录的城市列表。
 
@@ -580,13 +580,13 @@ async def _collect_knowledge_cities() -> List[str]:
 
         service = get_rag_service()
 
-        def _scroll_cities() -> List[str]:
+        def _scroll_cities() -> list[str]:
             """同步执行 Qdrant scroll，提取 payload 中的去重城市列表。"""
             service._ensure_collection()
             points, _ = service.client.scroll(
                 service.collection_name, limit=256, with_payload=True, with_vectors=False
             )
-            cities: List[str] = []
+            cities: list[str] = []
             for point in points or []:
                 city = (point.payload or {}).get("city")
                 if city and city not in cities:
@@ -644,7 +644,7 @@ async def get_recommendations(
     scored = _score_recommendation_cities(
         favorite_cities, memory_cities, history_cities, knowledge_cities
     )
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     for city, info in scored[:5]:
         reason, source = _build_recommendation_reason(info)
         items.append({"city": city, "reason": reason, "source": source})
@@ -980,7 +980,7 @@ async def submit_plan_feedback(
 
 async def _load_regenerate_context(
     session: AsyncSession, plan_id: str
-) -> Tuple[PlanRevision, str, List[PlanFeedback]]:
+) -> tuple[PlanRevision, str, list[PlanFeedback]]:
     """
     加载重新生成所需的上下文：当前生效版本 + 聚合后的有效反馈。
 
@@ -1051,8 +1051,8 @@ def _build_revision_request(
 
 
 def _build_full_feedback_constraint(
-    feedbacks: List[PlanFeedback],
-) -> Tuple[StructuredFeedback, List[str]]:
+    feedbacks: list[PlanFeedback],
+) -> tuple[StructuredFeedback, list[str]]:
     """
     根据反馈列表构造"强制完整重排"的结构化约束。
 
@@ -1156,7 +1156,7 @@ async def list_revisions(
 
     # 防御性查询：单独拉取每个版本的反馈，避免依赖 ORM 关系懒加载
     revision_ids = [r.id for r in revisions]
-    feedbacks_by_revision: Dict[int, List[PlanFeedback]] = {}
+    feedbacks_by_revision: dict[int, list[PlanFeedback]] = {}
     if revision_ids:
         feedback_result = await session.execute(
             select(PlanFeedback)
@@ -1385,7 +1385,7 @@ def _build_plan_digest(plan_data: dict) -> str:
     if not plan_data:
         return "（暂无行程数据）"
 
-    lines: List[str] = []
+    lines: list[str] = []
     city = plan_data.get("city", "")
     days = plan_data.get("day_plans") or []
     lines.append(f"目的地：{city}，共 {plan_data.get('travel_days', len(days))} 天")
@@ -1412,7 +1412,7 @@ def _build_plan_digest(plan_data: dict) -> str:
     return "\n".join(lines)
 
 
-def _parse_chat_llm_output(text: str) -> Optional[dict]:
+def _parse_chat_llm_output(text: str) -> dict | None:
     """
     _parse_chat_llm_output：解析 LLM 输出的意图 JSON（带容错）。
 
@@ -1442,7 +1442,7 @@ def _parse_chat_llm_output(text: str) -> Optional[dict]:
 
 async def _load_chat_context(
     session: AsyncSession, plan_id: str, plan: TripPlanDB, chat: PlanChatRequest
-) -> Dict:
+) -> dict:
     """
     加载对话修改助手所需的上下文。
 
@@ -1485,7 +1485,7 @@ async def _load_chat_context(
 
 async def _extract_chat_intent(
     message: str, plan_data: dict, feedback_context: str, history_context: str
-) -> Dict:
+) -> dict:
     """
     调用 LLM 识别对话意图并提取结构化信息，失败时走关键词降级。
 
@@ -1507,7 +1507,7 @@ async def _extract_chat_intent(
         f"【用户本轮输入】\n{message}"
     )
 
-    parsed: Optional[dict] = None
+    parsed: dict | None = None
     try:
         llm = get_llm(temperature=0.3)
         result = await llm.ainvoke(
@@ -1561,8 +1561,8 @@ async def _extract_chat_intent(
 
 
 async def _persist_chat_feedback(
-    session: AsyncSession, plan_id: str, user_id: int, message: str, intent_result: Dict
-) -> Tuple[Optional[int], bool]:
+    session: AsyncSession, plan_id: str, user_id: int, message: str, intent_result: dict
+) -> tuple[int | None, bool]:
     """
     feedback 意图时把对话内容写入反馈表（与手动反馈同表，不触发重排）。
 

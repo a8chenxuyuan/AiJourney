@@ -12,7 +12,7 @@ backend/app/api/routes/memory.py
 - SQLAlchemy：用户偏好持久化
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,7 +67,7 @@ async def get_user_preference(
 @router.post("/{user_id}", response_model=StandardResponse)
 async def update_user_preference(
     user_id: int,
-    updates: Dict[str, Any],
+    updates: dict[str, Any],
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):

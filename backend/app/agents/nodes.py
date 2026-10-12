@@ -44,7 +44,7 @@ import uuid
 from datetime import datetime, timedelta
 
 # typing 模块：提供类型提示支持，使代码更清晰、更易维护
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # ==================== LangChain 核心导入 ====================
 # HumanMessage：代表用户输入的消息，供 LLM 理解用户意图
@@ -137,7 +137,7 @@ def _make_log(
     step: str,
     input_preview: str = "",
     output_preview: str = "",
-    tool_calls: List[Dict[str, Any]] = None,
+    tool_calls: list[dict[str, Any]] = None,
 ) -> AgentLog:
     """
     【函数作用】构造 Agent 执行日志对象。
@@ -173,7 +173,7 @@ def _make_log(
     )
 
 
-def _encode_polyline(points: List[Dict[str, float]]) -> str:
+def _encode_polyline(points: list[dict[str, float]]) -> str:
     """
     【函数作用】将经纬度点列表编码为高德可识别的 polyline 字符串。
 
@@ -191,7 +191,7 @@ def _encode_polyline(points: List[Dict[str, float]]) -> str:
     return ";".join(segments)
 
 
-def _calculate_center(locations: List[Location]) -> Optional[Location]:
+def _calculate_center(locations: list[Location]) -> Location | None:
     """
     【函数作用】计算一组坐标的几何中心点。
 
@@ -207,7 +207,7 @@ def _calculate_center(locations: List[Location]) -> Optional[Location]:
     return Location(longitude=avg_lon, latitude=avg_lat, address=None)
 
 
-def _build_day_route_polyline(attractions: List[Attraction], route_matrix: Dict[str, Any]) -> str:
+def _build_day_route_polyline(attractions: list[Attraction], route_matrix: dict[str, Any]) -> str:
     """
     【函数作用】根据当天景点顺序，从路线矩阵中拼接出完整 polyline。
 
@@ -217,7 +217,7 @@ def _build_day_route_polyline(attractions: List[Attraction], route_matrix: Dict[
     if len(attractions) < 2:
         return ""
 
-    all_points: List[Dict[str, float]] = []
+    all_points: list[dict[str, float]] = []
     for i in range(len(attractions) - 1):
         a = attractions[i]
         b = attractions[i + 1]
@@ -244,7 +244,7 @@ def _build_day_route_polyline(attractions: List[Attraction], route_matrix: Dict[
     return _encode_polyline(all_points)
 
 
-def _enrich_day_plan_with_map_data(day: DayPlan, route_matrix: Dict[str, Any]) -> None:
+def _enrich_day_plan_with_map_data(day: DayPlan, route_matrix: dict[str, Any]) -> None:
     """
     【函数作用】为单日行程补充地图相关字段。
 
@@ -271,25 +271,25 @@ def _enrich_plan_with_poi_details(plan: TripPlan, state: TravelPlanningState) ->
     - 其次模糊匹配（名称互相包含）
     """
     # 构建候选池字典，key 为 POI 名称
-    attractions_by_name: Dict[str, Attraction] = {}
+    attractions_by_name: dict[str, Attraction] = {}
     for a in state.get("attractions", []) or []:
         name = a.name.strip() if a.name else ""
         if name:
             attractions_by_name[name] = a
 
-    restaurants_by_name: Dict[str, Meal] = {}
+    restaurants_by_name: dict[str, Meal] = {}
     for r in state.get("restaurants", []) or []:
         name = r.name.strip() if r.name else ""
         if name:
             restaurants_by_name[name] = r
 
-    hotels_by_name: Dict[str, Hotel] = {}
+    hotels_by_name: dict[str, Hotel] = {}
     for h in state.get("hotels", []) or []:
         name = h.name.strip() if h.name else ""
         if name:
             hotels_by_name[name] = h
 
-    def _find_match(name: str, pool: Dict[str, Any]) -> Optional[Any]:
+    def _find_match(name: str, pool: dict[str, Any]) -> Any | None:
         """在候选池中按名称查找匹配项。"""
         if not name:
             return None
@@ -329,7 +329,7 @@ def _enrich_plan_with_poi_details(plan: TripPlan, state: TravelPlanningState) ->
             _merge_poi_fields(day.hotel, matched)
 
 
-def _summarize_poi_for_prompt(poi: Dict[str, Any]) -> str:
+def _summarize_poi_for_prompt(poi: dict[str, Any]) -> str:
     """
     【函数作用】将 POI 字典压缩为 PlannerAgent prompt 用的精简版本。
 
@@ -385,7 +385,7 @@ def _summarize_poi_for_prompt(poi: Dict[str, Any]) -> str:
     return json.dumps(compressed, ensure_ascii=False)
 
 
-def _format_route_summary(route_matrix: Dict[str, Any]) -> str:
+def _format_route_summary(route_matrix: dict[str, Any]) -> str:
     """
     【函数作用】将路线矩阵转为简短文本，供 PlannerAgent 使用。
 
@@ -425,7 +425,7 @@ def _format_route_summary(route_matrix: Dict[str, Any]) -> str:
 # 每个函数的签名：async def node(state: TravelPlanningState) -> Dict[str, Any]
 
 
-async def intent_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def intent_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】意图理解 Agent。
 
@@ -563,7 +563,7 @@ async def intent_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def attraction_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def attraction_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】景点检索 Agent。
 
@@ -609,7 +609,7 @@ async def attraction_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     max_attractions = 10
 
     # 初始化景点列表，用于存储搜索结果
-    attractions: List[Attraction] = []
+    attractions: list[Attraction] = []
     # 用于去重的集合，记录已处理的景点名称
     # 同一景点可能在不同关键词的搜索结果中重复出现，需要去重
     seen_names = set()  # 用于去重（同一景点可能被多次搜索到）
@@ -831,7 +831,7 @@ async def attraction_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def weather_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def weather_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】天气查询 Agent。
 
@@ -866,7 +866,7 @@ async def weather_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     # 初始化工具调用记录列表
     tool_calls = []
     # 初始化天气列表，用于存储每日天气信息
-    weather_list: List[WeatherInfo] = []
+    weather_list: list[WeatherInfo] = []
 
     try:
         # ==================== 步骤 1：调用天气接口 ====================
@@ -973,7 +973,7 @@ async def weather_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def hotel_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def hotel_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】酒店推荐 Agent。
 
@@ -1004,7 +1004,7 @@ async def hotel_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     # 初始化工具调用记录列表
     tool_calls = []
     # 初始化酒店列表
-    hotels: List[Hotel] = []
+    hotels: list[Hotel] = []
 
     try:
         # 调用 search_hotels 工具
@@ -1085,7 +1085,7 @@ async def hotel_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def food_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def food_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】餐厅搜索 Agent。
 
@@ -1115,7 +1115,7 @@ async def food_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     # 初始化工具调用记录列表
     tool_calls = []
     # 初始化候选餐厅列表
-    restaurants: List[Meal] = []
+    restaurants: list[Meal] = []
 
     # 构造搜索关键词：优先根据用户偏好，如"海鲜"、"美食"，默认"餐厅"
     search_keywords = ["餐厅"]
@@ -1192,7 +1192,7 @@ async def food_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     return {"restaurants": restaurants, "logs": [log], "current_step": "food_agent"}
 
 
-async def rag_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def rag_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】知识检索 Agent。
 
@@ -1259,7 +1259,7 @@ async def rag_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def route_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def route_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】路线规划 Agent。
 
@@ -1297,7 +1297,7 @@ async def route_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
 
     # 初始化路线矩阵字典
     # 键为 "景点A|景点B"，值为包含距离和时间的字典
-    route_matrix: Dict[str, Any] = {}
+    route_matrix: dict[str, Any] = {}
     # 初始化工具调用记录列表
     tool_calls = []
 
@@ -1391,8 +1391,8 @@ async def route_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
 
 
 def _assign_day_city_ranges(
-    cities: List[str], city_days: Dict[str, int], travel_days: int
-) -> Dict[int, str]:
+    cities: list[str], city_days: dict[str, int], travel_days: int
+) -> dict[int, str]:
     """
     按城市停留天数顺序，把第 1..travel_days 天映射到所在城市。
 
@@ -1407,7 +1407,7 @@ def _assign_day_city_ranges(
     Returns:
         Dict[int, str]: day_index → 城市名。
     """
-    mapping: Dict[int, str] = {}
+    mapping: dict[int, str] = {}
     day = 1
     for city in cities:
         for _ in range(city_days.get(city, 0)):
@@ -1423,7 +1423,7 @@ def _assign_day_city_ranges(
 
 
 def _format_cities_plan(
-    cities: List[str], city_days: Dict[str, int], day_city_map: Dict[int, str]
+    cities: list[str], city_days: dict[str, int], day_city_map: dict[int, str]
 ) -> str:
     """
     把城市停留分配格式化为提示词文本，如"杭州：2 天（第1-2天）"。
@@ -1444,7 +1444,7 @@ def _format_cities_plan(
     return "\n".join(lines)
 
 
-def _format_intercity_legs(legs: List[Dict[str, Any]]) -> str:
+def _format_intercity_legs(legs: list[dict[str, Any]]) -> str:
     """
     把城际大交通列表格式化为提示词文本；为空时给出占位说明。
     """
@@ -1458,8 +1458,8 @@ def _format_intercity_legs(legs: List[Dict[str, Any]]) -> str:
 
 
 def _format_day_city_weather(
-    day_city_map: Dict[int, str],
-    weather_by_city: Dict[str, List[WeatherInfo]],
+    day_city_map: dict[int, str],
+    weather_by_city: dict[str, list[WeatherInfo]],
     start_date: str,
     travel_days: int,
 ) -> str:
@@ -1487,14 +1487,14 @@ def _format_day_city_weather(
 
 
 def _format_city_sections(
-    cities: List[str],
-    city_days: Dict[str, int],
-    day_city_map: Dict[int, str],
-    attractions_by_city: Dict[str, List[Any]],
-    hotels_by_city: Dict[str, List[Any]],
-    restaurants_by_city: Dict[str, List[Any]],
-    rag_by_city: Dict[str, str],
-    route_matrix_by_city: Dict[str, Dict[str, Any]],
+    cities: list[str],
+    city_days: dict[str, int],
+    day_city_map: dict[int, str],
+    attractions_by_city: dict[str, list[Any]],
+    hotels_by_city: dict[str, list[Any]],
+    restaurants_by_city: dict[str, list[Any]],
+    rag_by_city: dict[str, str],
+    route_matrix_by_city: dict[str, dict[str, Any]],
 ) -> str:
     """
     把各城市的候选景点/酒店/餐厅/攻略/路线矩阵汇总为提示词分节文本。
@@ -1544,8 +1544,8 @@ def _format_city_sections(
 
 
 async def _call_llm_for_plan(
-    messages: List[Any], tool_calls: List[Dict[str, Any]]
-) -> Optional[TripPlan]:
+    messages: list[Any], tool_calls: list[dict[str, Any]]
+) -> TripPlan | None:
     """
     调用 LLM 生成 TripPlan（带一次重试），解析失败返回 None。
 
@@ -1555,7 +1555,7 @@ async def _call_llm_for_plan(
         llm = get_llm(temperature=0.4, timeout=300)
         try:
             response = await asyncio.wait_for(llm.ainvoke(messages), timeout=300)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise RuntimeError("PlannerAgent LLM 调用超时（>300秒）")
         tool_calls.append({"tool": "llm", "preview": str(response.content)[:200]})
         plan = parse_llm_json(str(response.content), TripPlan)
@@ -1581,9 +1581,9 @@ async def _call_llm_for_plan(
 
 def _enforce_multi_city_must_visit(
     plan: TripPlan,
-    intent: Optional[IntentAnalysis],
-    attractions_by_city: Dict[str, List[Any]],
-    tool_calls: List[Dict[str, Any]],
+    intent: IntentAnalysis | None,
+    attractions_by_city: dict[str, list[Any]],
+    tool_calls: list[dict[str, Any]],
 ) -> None:
     """
     强制校验多城行程中的 must_visit 必去景点，缺失时补入对应城市天数中。
@@ -1604,7 +1604,7 @@ def _enforce_multi_city_must_visit(
 
     logger.info(f"[Node] 多城 planner 发现缺失的必去景点: {missing}")
     # 全城市候选池：景点名 → (景点对象, 所属城市)
-    candidate_map: Dict[str, Tuple[Any, str]] = {}
+    candidate_map: dict[str, tuple[Any, str]] = {}
     for city, pool in (attractions_by_city or {}).items():
         for cand in pool:
             if cand.name and cand.name.strip():
@@ -1644,7 +1644,7 @@ def _enforce_multi_city_must_visit(
 
 
 def _normalize_multi_city_plan(
-    plan: TripPlan, state: TravelPlanningState, day_city_map: Dict[int, str], travel_days: int
+    plan: TripPlan, state: TravelPlanningState, day_city_map: dict[int, str], travel_days: int
 ) -> None:
     """
     把 LLM（或 fallback）生成的多城行程规范化：
@@ -1658,7 +1658,7 @@ def _normalize_multi_city_plan(
     route_matrix_by_city = state.get("route_matrix_by_city") or {}
 
     existing_days = {day.day_index: day for day in plan.day_plans}
-    normalized: List[DayPlan] = []
+    normalized: list[DayPlan] = []
     for day_index in range(1, travel_days + 1):
         day = existing_days.get(day_index)
         if day is None:
@@ -1748,7 +1748,7 @@ def _build_revision_context_block(previous_plan: Any, revision_notes: str) -> st
 """
 
 
-async def _run_multi_city_planner(state: TravelPlanningState) -> Dict[str, Any]:
+async def _run_multi_city_planner(state: TravelPlanningState) -> dict[str, Any]:
     """
     多城联游的行程规划分支（planner_agent_node 在 cities>=2 时转入）。
 
@@ -1803,7 +1803,7 @@ async def _run_multi_city_planner(state: TravelPlanningState) -> Dict[str, Any]:
     logger.debug(f"[Node] 多城 planner prompt 构造完成，长度={len(human_prompt)}")
 
     # ==================== 步骤 2：调用 LLM（失败重试 + 兜底） ====================
-    tool_calls: List[Dict[str, Any]] = []
+    tool_calls: list[dict[str, Any]] = []
     plan = await _call_llm_for_plan(messages, tool_calls)
     if plan is None:
         # 兜底计划基于主城市数据机械拼装，随后由规范化步骤补 city / intercity_note
@@ -1829,7 +1829,7 @@ async def _run_multi_city_planner(state: TravelPlanningState) -> Dict[str, Any]:
     # 天气按"天 → 所在城市"重组，保证与 day_plans 的日期一一对应
     weather_by_city = state.get("weather_by_city") or {}
     start_dt = datetime.strptime(request.start_date, "%Y-%m-%d")
-    day_weather: List[WeatherInfo] = []
+    day_weather: list[WeatherInfo] = []
     for day_index in range(1, travel_days + 1):
         date_str = (start_dt + timedelta(days=day_index - 1)).strftime("%Y-%m-%d")
         city_of_day = day_city_map.get(day_index, cities[0] if cities else request.city)
@@ -1862,7 +1862,7 @@ async def _run_multi_city_planner(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def planner_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def planner_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】行程规划 Agent（核心）。
 
@@ -1976,7 +1976,7 @@ async def planner_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
         # 用 asyncio.wait_for 强制 5 分钟超时，防止百炼 API 在巨大 prompt 下无限挂起
         try:
             response = await asyncio.wait_for(llm.ainvoke(messages), timeout=300)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise RuntimeError(
                 f"PlannerAgent LLM 调用超时（>300秒），prompt 长度={len(human_prompt)}"
             )
@@ -2128,7 +2128,7 @@ async def planner_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def budget_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def budget_agent_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】预算统计 Agent。
 
@@ -2240,7 +2240,7 @@ async def budget_agent_node(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def human_in_the_loop_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def human_in_the_loop_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】人机协同节点（当前为自动通过）。
 
@@ -2270,7 +2270,7 @@ async def human_in_the_loop_node(state: TravelPlanningState) -> Dict[str, Any]:
     }
 
 
-async def finalize_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def finalize_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】收尾节点。
 
@@ -2417,7 +2417,7 @@ async def finalize_node(state: TravelPlanningState) -> Dict[str, Any]:
 # ==================== 兜底/辅助函数 ====================
 
 
-def _compute_plan_diff(previous_plan: Any, new_plan: Any) -> Dict[str, Any]:
+def _compute_plan_diff(previous_plan: Any, new_plan: Any) -> dict[str, Any]:
     """
     【函数作用】对比新旧行程，返回"修改了什么"的结构化摘要。
 
@@ -2535,7 +2535,7 @@ def _build_fallback_plan(state: TravelPlanningState) -> TripPlan:
     start = datetime.strptime(request.start_date, "%Y-%m-%d")
 
     # 初始化每日行程列表
-    day_plans: List[DayPlan] = []
+    day_plans: list[DayPlan] = []
 
     # 判断是否有景点数据
     if not attractions:
@@ -2631,7 +2631,7 @@ def _build_fallback_plan(state: TravelPlanningState) -> TripPlan:
 # ==================== 行程迭代修订节点 ====================
 
 
-async def feedback_extractor_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def feedback_extractor_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】反馈意图提取 Agent。
 
@@ -2710,8 +2710,8 @@ async def feedback_extractor_node(state: TravelPlanningState) -> Dict[str, Any]:
 
 
 async def _gather_patch_candidates(
-    cities: List[str], previous_plan: TripPlan, structured: StructuredFeedback
-) -> Tuple[List[Attraction], List[Meal], List[Hotel]]:
+    cities: list[str], previous_plan: TripPlan, structured: StructuredFeedback
+) -> tuple[list[Attraction], list[Meal], list[Hotel]]:
     """
     根据结构化反馈动作，从高德 POI 搜索候选替换项。
 
@@ -2725,9 +2725,9 @@ async def _gather_patch_candidates(
 
     返回 (候选景点, 候选餐厅, 候选酒店)。
     """
-    attractions: List[Attraction] = []
-    restaurants: List[Meal] = []
-    hotels: List[Hotel] = []
+    attractions: list[Attraction] = []
+    restaurants: list[Meal] = []
+    hotels: list[Hotel] = []
 
     for action in structured.actions:
         action_type = action.type
@@ -2796,8 +2796,8 @@ async def _gather_patch_candidates(
 
 
 async def _recompute_routes_for_days(
-    plan: TripPlan, affected_days: List[int], transportation: str
-) -> Dict[str, Any]:
+    plan: TripPlan, affected_days: list[int], transportation: str
+) -> dict[str, Any]:
     """
     为受影响的日期重新计算景点间路线矩阵。
     """
@@ -2807,7 +2807,7 @@ async def _recompute_routes_for_days(
     elif transportation in ["步行", "走路"]:
         mode = "walking"
 
-    route_matrix: Dict[str, Any] = {}
+    route_matrix: dict[str, Any] = {}
 
     for day in plan.day_plans:
         if day.day_index not in affected_days:
@@ -2846,7 +2846,7 @@ async def _recompute_routes_for_days(
     return route_matrix
 
 
-async def patch_plan_node(state: TravelPlanningState) -> Dict[str, Any]:
+async def patch_plan_node(state: TravelPlanningState) -> dict[str, Any]:
     """
     【节点作用】行程局部修改 Agent（PatchPlanAgent）。
 
@@ -2863,7 +2863,7 @@ async def patch_plan_node(state: TravelPlanningState) -> Dict[str, Any]:
     # 0. 解析候选搜索城市：优先取受影响天所在城市（多城时保证候选与目标城市匹配），
     #    受影响天缺失或无法定位时退化为行程全部城市（单城即 [city]，行为不变）
     plan_cities = [s.city for s in (previous_plan.cities or [])] or [city]
-    affected_cities: List[str] = []
+    affected_cities: list[str] = []
     prev_days_map = {d.day_index: d for d in previous_plan.day_plans}
     for day_index in structured.affected_days or []:
         prev_day = prev_days_map.get(day_index)

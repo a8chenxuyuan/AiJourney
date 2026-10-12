@@ -14,9 +14,8 @@ backend/app/config.py
 """
 
 from pathlib import Path
-from typing import List, Optional
 
-from pydantic import Field, validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 项目根目录（backend 目录），用于定位 .env 文件
@@ -76,7 +75,7 @@ class Settings(BaseSettings):
     rag_top_k: int = Field(default=5, description="RAG 检索 Top-K")
 
     # ------------------- Redis 缓存配置（可选） -------------------
-    redis_url: Optional[str] = Field(default=None, description="Redis 连接 URL")
+    redis_url: str | None = Field(default=None, description="Redis 连接 URL")
 
     # ------------------- 爬虫配置 -------------------
     crawler_enabled: bool = Field(default=False, description="是否启用定时爬虫")
@@ -86,9 +85,9 @@ class Settings(BaseSettings):
 
     # ------------------- 支付配置（沙箱） -------------------
     payment_sandbox: bool = Field(default=True, description="是否启用支付沙箱")
-    alipay_app_id: Optional[str] = Field(default=None, description="支付宝沙箱 APP ID")
-    alipay_public_key: Optional[str] = Field(default=None, description="支付宝沙箱公钥")
-    alipay_private_key: Optional[str] = Field(default=None, description="支付宝沙箱私钥")
+    alipay_app_id: str | None = Field(default=None, description="支付宝沙箱 APP ID")
+    alipay_public_key: str | None = Field(default=None, description="支付宝沙箱公钥")
+    alipay_private_key: str | None = Field(default=None, description="支付宝沙箱私钥")
 
     # 配置 pydantic-settings 从 .env 文件读取
     # 使用相对于当前配置文件的绝对路径，确保无论从哪个工作目录启动都能找到 backend/.env
@@ -98,16 +97,7 @@ class Settings(BaseSettings):
         extra="ignore",  # 忽略未定义的环境变量，避免启动失败
     )
 
-    @validator("cors_origins", pre=True)
-    def parse_cors_origins(cls, v: str) -> str:
-        """
-        校验 CORS _ORIGINS 是否为字符串。
-
-        后续 api/main.py 会将其按逗号拆分为列表。
-        """
-        return v
-
-    def get_cors_origins(self) -> List[str]:
+    def get_cors_origins(self) -> list[str]:
         """
         将 cors_origins 字符串拆分为列表。
 
