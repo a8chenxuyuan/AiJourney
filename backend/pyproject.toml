@@ -13,3 +13,9 @@ select = [
     "C4",  # flake8-comprehensions
     "RUF", # ruff-specific rules
 ]
+ignore = [
+    # 中文注释/字符串中的全角标点会被误报为歧义 Unicode 字符
+    "RUF001", "RUF002", "RUF003",
+    # FastAPI 依赖注入的惯用写法（Depends/Query/Path 等在参数默认值中调用）
+    "B008",
+]
