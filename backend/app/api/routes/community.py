@@ -302,8 +302,10 @@ async def like_post(
     except IntegrityError:
         # 重复点赞：唯一约束冲突，回滚后幂等返回
         await session.rollback()
+    # 回读真实计数：重复点赞场景 update 已回滚，不能用加载值自增
+    await session.refresh(post)
     return StandardResponse(
-        success=True, message="已点赞", data={"liked": True, "like_count": post.like_count + 1}
+        success=True, message="已点赞", data={"liked": True, "like_count": post.like_count}
     )
 
 
@@ -325,10 +327,9 @@ async def unlike_post(
             .values(like_count=CommunityPost.like_count - 1)
         )
         await session.commit()
+    await session.refresh(post)
     return StandardResponse(
-        success=True,
-        message="已取消点赞",
-        data={"liked": False, "like_count": max(post.like_count - 1, 0)},
+        success=True, message="已取消点赞", data={"liked": False, "like_count": post.like_count}
     )
 
 
