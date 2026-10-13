@@ -26,6 +26,8 @@ import {
 } from '@/api/community'
 // 引入行程 API（发布弹窗关联行程下拉）
 import { getMyPlans } from '@/api/trip'
+// 引入共享右栏（玩法引导 / 活跃旅行者 / 热门标签，与旅行圈页复用）
+import CommunityRail from '@/components/CommunityRail.vue'
 
 const router = useRouter()
 
@@ -332,8 +334,8 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
     <!-- 顶部 Hero：渐变横幅 + 排序 + 发布 -->
     <section class="cm-hero">
       <div class="cm-hero-copy">
-        <h2>旅行社区</h2>
-        <p>看看别人怎么玩 · 把好路线一键抄回家</p>
+        <h2>旅行笔记</h2>
+        <p>沉淀攻略与游记 · 把好路线一键抄回家</p>
       </div>
       <div class="cm-hero-actions">
         <div class="cm-seg">
@@ -427,55 +429,14 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
         <!-- 空状态 -->
         <div v-if="!loading && filteredPosts.length === 0" class="cm-empty">
           <span class="cm-empty-icon">🧳</span>
-          <p class="cm-empty-title">{{ activeTag ? '该标签下还没有内容' : '社区还空着' }}</p>
+          <p class="cm-empty-title">{{ activeTag ? '该标签下还没有内容' : '笔记区还空着' }}</p>
           <p class="cm-empty-sub">{{ activeTag ? '换个标签看看，或发布第一篇' : '发布第一篇旅行笔记，让别人照着你的路线走' }}</p>
           <button class="cm-publish cm-publish-plain" @click="openPublish">✏️ 发布第一篇</button>
         </div>
       </div>
 
-      <!-- 右列：信息栏 -->
-      <aside class="cm-rail">
-        <!-- 社区玩法引导（深色卡） -->
-        <section class="rail-card rail-play">
-          <h4>社区怎么玩</h4>
-          <ol class="rail-steps">
-            <li><i>1</i><div><b>规划行程</b><span>AI 帮你定制路线</span></div></li>
-            <li><i>2</i><div><b>行中打卡</b><span>记录足迹与照片</span></div></li>
-            <li><i>3</i><div><b>生成游记</b><span>AI 一键写好图文</span></div></li>
-            <li><i>4</i><div><b>发布 · 照着走</b><span>把路线分享给他人</span></div></li>
-          </ol>
-        </section>
-
-        <!-- 活跃旅行者（按已加载内容聚合作者维度） -->
-        <section class="rail-card">
-          <h4>活跃旅行者</h4>
-          <ul v-if="topUsers.length" class="rail-users">
-            <li v-for="(u, i) in topUsers" :key="u.name">
-              <span class="ru-rank" :class="{ 'is-top': i < 3 }">{{ i + 1 }}</span>
-              <span class="ru-avatar">{{ u.name.charAt(0).toUpperCase() }}</span>
-              <div class="ru-info">
-                <b>{{ u.name }}</b>
-                <span>{{ u.posts }} 篇笔记 · {{ u.likes }} 获赞</span>
-              </div>
-            </li>
-          </ul>
-          <p v-else class="rail-empty">还没有活跃作者，发第一篇笔记试试</p>
-        </section>
-
-        <!-- 热门标签 -->
-        <section class="rail-card">
-          <h4>热门标签</h4>
-          <div v-if="topTags.length" class="rail-tags">
-            <button
-              v-for="t in topTags"
-              :key="t.name"
-              :class="{ on: activeTag === t.name }"
-              @click="toggleTag(t.name)"
-            ># {{ t.name }}<i>{{ t.count }}</i></button>
-          </div>
-          <p v-else class="rail-empty">发帖时添加标签，就会出现在这里</p>
-        </section>
-      </aside>
+      <!-- 右列：信息栏（与旅行圈页共用组件） -->
+      <CommunityRail zone="note" :users="topUsers" :tags="topTags" :active-tag="activeTag" @toggle-tag="toggleTag" />
     </div>
 
     <!-- 加载 / 到底提示 -->
@@ -749,20 +710,6 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   flex: 1;
   min-width: 0;
 }
-.cm-rail {
-  width: 292px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  position: sticky;
-  top: 16px;
-}
-@media (max-width: 1080px) {
-  .cm-rail {
-    display: none;
-  }
-}
 
 /* ===== 标签筛选提示条 ===== */
 .cm-filter-hint {
@@ -986,169 +933,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   background: linear-gradient(135deg, #dcf5e9, #c8eedd);
 }
 
-/* ===== 右侧信息栏 ===== */
-.rail-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 18px;
-  box-shadow: 0 2px 10px rgba(31, 56, 88, 0.05);
-}
-.rail-card h4 {
-  margin: 0 0 14px;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #1f2a37;
-}
-/* 玩法卡：深色渐变，与白色数据卡形成对比，消除右栏苍白感 */
-.rail-play {
-  background: linear-gradient(165deg, #0e1f2b 0%, #143d57 100%);
-  box-shadow: 0 10px 26px rgba(10, 23, 32, 0.35);
-}
-.rail-play h4 {
-  color: #fff;
-}
-.rail-play .rail-steps b {
-  color: #fff;
-}
-.rail-play .rail-steps span {
-  color: rgba(255, 255, 255, 0.55);
-}
-.rail-play .rail-steps i {
-  background: rgba(255, 255, 255, 0.16);
-}
-/* 玩法步骤 */
-.rail-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.rail-steps li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.rail-steps i {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #1677ff, #0aa5c2);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  font-style: normal;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.rail-steps b {
-  display: block;
-  font-size: 13.5px;
-  color: #1f2a37;
-}
-.rail-steps span {
-  display: block;
-  font-size: 12px;
-  color: #98a3b3;
-}
-/* 热门标签 */
-.rail-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.rail-tags button {
-  border: 1px solid #e3ecf5;
-  background: #f7fafd;
-  color: #4b5768;
-  font-size: 12.5px;
-  padding: 5px 11px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.rail-tags button i {
-  font-style: normal;
-  color: #b3bdc9;
-  margin-left: 4px;
-  font-size: 11.5px;
-}
-.rail-tags button:hover {
-  border-color: #9dc6ff;
-  color: #1677ff;
-}
-.rail-tags button.on {
-  background: #1677ff;
-  border-color: #1677ff;
-  color: #fff;
-}
-.rail-tags button.on i {
-  color: rgba(255, 255, 255, 0.7);
-}
-.rail-empty {
-  margin: 0;
-  font-size: 12.5px;
-  color: #b3bdc9;
-  line-height: 1.6;
-}
-/* 活跃旅行者 */
-.rail-users {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.rail-users li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.ru-rank {
-  width: 18px;
-  font-size: 12px;
-  font-weight: 800;
-  font-style: normal;
-  color: #b3bdc9;
-  text-align: center;
-  flex-shrink: 0;
-}
-.ru-rank.is-top {
-  color: #ff9a44;
-}
-.ru-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ffb199 0%, #ff6f91 100%);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.ru-info {
-  min-width: 0;
-}
-.ru-info b {
-  display: block;
-  font-size: 13.5px;
-  color: #1f2a37;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ru-info span {
-  display: block;
-  font-size: 12px;
-  color: #98a3b3;
-}
+/* ===== 右栏样式已抽到 CommunityRail.vue 两页共用 ===== */
 
 /* ===== 空状态 ===== */
 .cm-empty {
