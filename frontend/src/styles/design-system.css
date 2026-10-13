@@ -144,16 +144,14 @@ h1, h2, h3, h4 {
   position: sticky;
   top: 0;
   height: 100vh;
-  width: 232px;
+  width: 248px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  padding: 20px 14px 16px;
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  border-right: 1px solid rgba(14, 34, 57, 0.06);
-  box-shadow: var(--shadow-sm);
+  padding: 26px 16px 20px;
+  background: linear-gradient(180deg, #0e1f2b 0%, #0a1720 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 4px 0 24px rgba(10, 23, 32, 0.18);
   z-index: 100;
 }
 /* 品牌渐变发丝线（侧栏右缘） */
@@ -176,7 +174,11 @@ h1, h2, h3, h4 {
   gap: 10px;
   cursor: pointer;
   user-select: none;
-  padding: 2px 8px 18px;
+  padding: 2px 8px 24px;
+}
+/* 侧栏内品牌名用浅色（登录页浅底复用基础类，需局部覆盖） */
+.app-sidebar .app-logo-name {
+  color: #fff;
 }
 .app-logo-icon {
   width: 36px;
@@ -200,19 +202,19 @@ h1, h2, h3, h4 {
 .app-side-nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 .app-side-link {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 14px;
+  padding: 13px 16px;
   border-radius: 12px;
   border: none;
   background: transparent;
   font-size: 14px;
   font-weight: 500;
-  color: var(--ink-2);
+  color: rgba(255, 255, 255, 0.68);
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -224,14 +226,14 @@ h1, h2, h3, h4 {
   flex-shrink: 0;
 }
 .app-side-link:hover {
-  background: rgba(14, 34, 57, 0.05);
-  color: var(--brand);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 .app-side-link.active {
   background: var(--grad-primary);
   color: #fff;
   font-weight: 600;
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
 }
 
 /* 底部用户区 */
@@ -239,16 +241,16 @@ h1, h2, h3, h4 {
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 .app-side-user {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px;
+  padding: 12px;
   border-radius: 14px;
-  background: rgba(14, 34, 57, 0.04);
-  border: 1px solid rgba(14, 34, 57, 0.05);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.09);
 }
 .app-user-avatar {
   width: 34px;
@@ -273,19 +275,19 @@ h1, h2, h3, h4 {
 .app-side-user-name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--ink);
+  color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .app-side-user-tag {
   font-size: 12px;
-  color: var(--ink-3);
+  color: rgba(255, 255, 255, 0.45);
 }
 .app-side-logout {
   border: none;
   background: transparent;
-  color: var(--ink-3);
+  color: rgba(255, 255, 255, 0.55);
   cursor: pointer;
   padding: 7px;
   border-radius: 9px;
@@ -299,8 +301,8 @@ h1, h2, h3, h4 {
   height: 16px;
 }
 .app-side-logout:hover {
-  color: #ff4d4f;
-  background: #fff;
+  color: #ff8a94;
+  background: rgba(255, 255, 255, 0.1);
 }
 /* 未登录：登录 / 注册入口 */
 .app-side-login,
@@ -314,14 +316,14 @@ h1, h2, h3, h4 {
   white-space: nowrap;
 }
 .app-side-login {
-  border: 1px solid rgba(14, 34, 57, 0.12);
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--ink-2);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
 }
 .app-side-login:hover {
-  color: var(--brand);
-  border-color: var(--brand);
-  background: #fff;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
 }
 .app-side-register {
   border: none;
