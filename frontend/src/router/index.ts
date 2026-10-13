@@ -16,6 +16,11 @@ import Profile from '@/views/Profile.vue'
 import SharedPlan from '@/views/SharedPlan.vue'
 // 引入邀请加入协作页
 import Join from '@/views/Join.vue'
+// 引入行中伴侣与旅行档案页
+import Today from '@/views/Today.vue'
+import Footprints from '@/views/Footprints.vue'
+import Journal from '@/views/Journal.vue'
+import Archive from '@/views/Archive.vue'
 // 引入用户认证 store，用于路由守卫判断登录状态
 import { useAuthStore } from '@/stores/auth'
 
@@ -62,6 +67,34 @@ const routes: RouteRecordRaw[] = [
     name: 'Profile',
     component: Profile,
     meta: { title: '个人中心' }
+  },
+  // /profile/archive：旅行档案页（历史行程 + 打卡统计）
+  {
+    path: '/profile/archive',
+    name: 'Archive',
+    component: Archive,
+    meta: { title: '旅行档案' }
+  },
+  // /trip/:id/today：当日视图（行中伴侣，按时间轴执行/打卡/导航）
+  {
+    path: '/trip/:id/today',
+    name: 'Today',
+    component: Today,
+    meta: { title: '今日行程' }
+  },
+  // /trip/:id/footprints：足迹地图（打卡点按天连线）
+  {
+    path: '/trip/:id/footprints',
+    name: 'Footprints',
+    component: Footprints,
+    meta: { title: '足迹地图' }
+  },
+  // /trip/:id/journal：游记页（生成/展示/编辑）
+  {
+    path: '/trip/:id/journal',
+    name: 'Journal',
+    component: Journal,
+    meta: { title: '旅行游记' }
   },
   // /share/:token：行程只读分享页，公开访问无需登录
   {

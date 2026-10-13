@@ -25,6 +25,7 @@ import { useRouter } from 'vue-router'
 import { Form, Input, InputNumber, DatePicker, Select, Switch, Button, Card, Row, Col, Badge, Popover, message, Tag } from 'ant-design-vue'
 // 引入创建规划 API 与请求类型
 import { createPlan, getFavoriteCities, type TripRequest } from '@/api/trip'
+import { getArchive, type ArchiveData } from '@/api/companion'
 // 引入站内通知 API 与类型
 import { getNotifications, markAllNotificationsRead, type NotificationItem } from '@/api/notification'
 // 引入个性化推荐 API 与类型
@@ -247,11 +248,31 @@ const applyFavoriteCity = (city: string) => {
   document.getElementById('plan-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+// ==================== 我的足迹条（旅行档案入口） ====================
+
+// archiveStats：旅行档案统计（去过城市/打卡数），为空则不展示入口
+const archiveStats = ref<ArchiveData['stats'] | null>(null)
+
+/**
+ * fetchArchiveStats：组件挂载时拉取档案统计（未登录或无数据时静默忽略）
+ */
+const fetchArchiveStats = async () => {
+  try {
+    const res = await getArchive()
+    if (res.success && res.data && res.data.stats.plan_count > 0) {
+      archiveStats.value = res.data.stats
+    }
+  } catch {
+    // 拉取失败不影响首页正常使用
+  }
+}
+
 // 组件挂载时拉取收藏城市、站内通知与个性化推荐
 onMounted(() => {
   fetchFavoriteCities()
   fetchNotifications()
   fetchRecommendations()
+  fetchArchiveStats()
 })
 const scrollToForm = () => {
   document.getElementById('plan-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -574,6 +595,31 @@ const onEndDateChange = (_date: any, dateString: string) => {
             <span class="tpl-cta">一键填充 →</span>
           </div>
         </article>
+      </div>
+    </section>
+
+    <!-- ============ 2.4 我的足迹条（旅行档案入口） ============ -->
+    <section v-if="archiveStats" class="reveal" style="margin-top: 32px">
+      <div class="section-head">
+        <div class="section-head-left">
+          <h2>我的足迹</h2>
+          <p>走过的每一步都被记录，随时回顾你的旅行档案</p>
+        </div>
+        <span class="section-head-tag">🎒 行中伴侣</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+          <Tag
+            v-for="city in archiveStats.cities.slice(0, 8)"
+            :key="city"
+            color="blue"
+            style="font-size: 15px; padding: 8px 20px; border-radius: 999px;"
+          >🏙️ {{ city }}</Tag>
+        </div>
+        <span style="color: #888; font-size: 14px;">
+          已去过 {{ archiveStats.city_count }} 座城市 · {{ archiveStats.checkin_total }} 次打卡
+        </span>
+        <router-link to="/profile/archive" style="margin-left: auto; font-weight: 600;">查看旅行档案 →</router-link>
       </div>
     </section>
 

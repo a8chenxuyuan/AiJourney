@@ -1184,6 +1184,9 @@ const manualRefresh = () => {
       <h2 style="margin: 0; font-size: 24px;">行程结果</h2>
       <div style="display: flex; gap: 12px; align-items: center;">
         <Tag v-if="isPaid" color="success" style="margin: 0;">✓ 已预订</Tag>
+        <Button type="primary" @click="router.push(`/trip/${planId}/today`)">今天</Button>
+        <Button type="default" @click="router.push(`/trip/${planId}/footprints`)">足迹</Button>
+        <Button type="default" @click="router.push(`/trip/${planId}/journal`)">游记</Button>
         <Button type="default" @click="router.push('/')">返回首页</Button>
         <Button type="default" @click="handleCopySummary">复制行程</Button>
         <Button type="default" :loading="shareLoading" @click="handleShare">分享</Button>

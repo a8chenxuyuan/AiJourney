@@ -130,6 +130,17 @@ export function httpPut<T = any>(url: string, data?: any, config?: AxiosRequestC
 }
 
 /**
+ * httpPatch：封装 PATCH 请求
+ * @param url 请求地址
+ * @param data 请求体数据
+ * @param config 可选的 axios 请求配置
+ * @returns Promise<StandardResponse<T>> 统一响应结构
+ */
+export function httpPatch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<StandardResponse<T>> {
+  return request.patch<StandardResponse<T>>(url, data, config).then((res) => res.data)
+}
+
+/**
  * httpDelete：封装 DELETE 请求
  * @param url 请求地址
  * @param config 可选的 axios 请求配置
