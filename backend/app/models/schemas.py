@@ -756,6 +756,9 @@ class PostCreateRequest(BaseModel):
     """
 
     title: str = Field(..., min_length=1, max_length=100, description="标题")
+    zone: str = Field(
+        "note", pattern="^(circle|note)$", description="发布分区：circle=旅行圈 / note=旅行笔记"
+    )
     tags: list[str] = Field(default_factory=list, max_length=5, description="标签（最多 5 个）")
     cover_url: str | None = Field(None, max_length=255, description="封面图 URL")
     sections: list[JournalSection] | None = Field(None, description="分节图文内容")
@@ -771,6 +774,7 @@ class PostOut(BaseModel):
     user_id: int = Field(..., description="作者用户 ID")
     author: str = Field(..., description="作者昵称")
     post_type: str = Field(..., description="帖子类型：journal/manual/route")
+    zone: str = Field("note", description="分区：circle=旅行圈 / note=旅行笔记")
     title: str = Field(..., description="标题")
     summary: str = Field(default="", description="摘要")
     cover_url: str | None = Field(None, description="封面图 URL")

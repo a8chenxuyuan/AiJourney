@@ -513,6 +513,13 @@ class CommunityPost(Base):
     post_type = Column(
         String(20), nullable=False, comment="帖子类型：journal/manual/route"
     )
+    zone = Column(
+        String(10),
+        nullable=False,
+        default="note",
+        index=True,
+        comment="分区：circle=旅行圈 / note=旅行笔记",
+    )
     title = Column(String(100), nullable=False, comment="标题")
     summary = Column(
         String(200), nullable=False, default="", comment="feed 卡片摘要（发布时从内容截取）"

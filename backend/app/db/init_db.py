@@ -40,6 +40,7 @@ _IDEMPOTENT_INDEXES = [
     "CREATE INDEX IF NOT EXISTS ix_plan_logs_plan_id ON plan_logs (plan_id)",
     "CREATE INDEX IF NOT EXISTS ix_trip_plans_share_token ON trip_plans (share_token)",
     "CREATE INDEX IF NOT EXISTS ix_favorites_city ON favorites (city)",
+    "CREATE INDEX IF NOT EXISTS ix_community_posts_zone ON community_posts (zone)",
 ]
 
 # create_all 同样不会为"已存在的表"补充新增列，
@@ -51,6 +52,7 @@ _IDEMPOTENT_COLUMNS = [
     ("trip_plans", "ALTER TABLE trip_plans ADD COLUMN share_view_count INTEGER NOT NULL DEFAULT 0"),
     ("trip_plans", "ALTER TABLE trip_plans ADD COLUMN cities_json JSON"),
     ("favorites", "ALTER TABLE favorites ADD COLUMN city VARCHAR(100)"),
+    ("community_posts", "ALTER TABLE community_posts ADD COLUMN zone VARCHAR(10)"),
 ]
 
 
@@ -75,3 +77,12 @@ async def init_db() -> None:
                     raise
         for ddl in _IDEMPOTENT_INDEXES:
             await conn.execute(text(ddl))
+        # 社区双分区回填：只处理 zone IS NULL 的旧行（manual→circle，其余→note），
+        # 新帖由 ORM 写入 zone，不会命中这两个 UPDATE，保证幂等
+        await conn.execute(
+            text(
+                "UPDATE community_posts SET zone = 'circle' "
+                "WHERE zone IS NULL AND post_type = 'manual'"
+            )
+        )
+        await conn.execute(text("UPDATE community_posts SET zone = 'note' WHERE zone IS NULL"))

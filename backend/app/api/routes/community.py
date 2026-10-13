@@ -87,6 +87,7 @@ def _post_out(post: CommunityPost, author: str) -> dict:
         "user_id": post.user_id,
         "author": author,
         "post_type": post.post_type,
+        "zone": post.zone or "note",
         "title": post.title,
         "summary": post.summary,
         "cover_url": post.cover_url,
@@ -183,6 +184,7 @@ async def create_post(
         plan_id=plan_id,
         journal_id=payload.journal_id,
         post_type=post_type,
+        zone=payload.zone,
         title=payload.title,
         summary=_build_summary(sections),
         content=sections,
@@ -206,13 +208,21 @@ async def create_post(
 @router.get("/feed", response_model=StandardResponse)
 async def get_feed(
     sort: str = Query(default="latest", pattern="^(latest|hot)$", description="排序方式"),
+    zone: str | None = Query(
+        default=None, pattern="^(circle|note)$", description="分区过滤（不传=全部）"
+    ),
     page: int = Query(default=1, ge=1),
     size: int = Query(default=10, ge=1, le=50),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    """广场 feed：只返回 published 帖子，latest 按时间倒序，hot 按加权热度倒序。"""
+    """广场 feed：只返回 published 帖子，latest 按时间倒序，hot 按加权热度倒序。
+
+    zone 可选过滤分区（circle/note），不传返回全部分区，旧调用兼容。
+    """
     published = CommunityPost.status == "published"
+    if zone:
+        published = published & (CommunityPost.zone == zone)
     total = (
         await session.execute(select(func.count()).select_from(CommunityPost).where(published))
     ).scalar_one()
