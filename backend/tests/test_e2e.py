@@ -740,3 +740,220 @@ def test_30_archive_summary(client, user_headers, plan_ctx):
     assert plan_ctx["plan_id"] in plan_ids
     plan_item = next(p for p in data["plans"] if p["plan_id"] == plan_ctx["plan_id"])
     assert plan_item["checkin_count"] >= 1
+
+
+# ==================== 旅行社区（31-36） ====================
+
+
+@pytest.fixture(scope="session")
+def community_ctx(client, user_headers, plan_ctx):
+    """
+    社区链路夹具：把 plan_ctx 行程的游记转发为一帖（依赖用例 29 已生成至 done）。
+
+    返回 {"post", "journal"}；feed/点赞/评论/照着走用例复用。
+    """
+    plan_id = plan_ctx["plan_id"]
+
+    resp = client.get(f"/api/trip/{plan_id}/journal", headers=user_headers)
+    journal = resp.json()["data"]
+    assert journal and journal["status"] == "done", "前置失败：游记未生成（先跑用例 29）"
+
+    resp = client.post(
+        "/api/community/posts",
+        headers=user_headers,
+        json={"title": "杭州两日慢游手记", "tags": ["杭州", "美食"], "journal_id": journal["id"]},
+    )
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"游记转发失败: {resp.text}"
+    post = resp.json()["data"]
+    assert post["post_type"] == "journal"
+    assert post["plan_id"] == plan_id, "游记转发应自动带上来源行程"
+
+    # 转发后游记应置为公开
+    resp = client.get(f"/api/trip/{plan_id}/journal", headers=user_headers)
+    assert resp.json()["data"]["is_public"] is True
+
+    return {"post": post, "journal": journal}
+
+
+def test_31_journal_forward_to_community(client, user_headers, community_ctx):
+    """用例31：游记一键转发（sections 全量拷贝、详情访问 view_count +1）。"""
+    post_id = community_ctx["post"]["id"]
+    resp = client.get(f"/api/community/posts/{post_id}", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"帖子详情失败: {resp.text}"
+    detail = resp.json()["data"]
+    assert detail["sections"], "游记帖应携带分节内容"
+    assert detail["view_count"] >= 1
+
+
+def test_32_feed_latest_and_hot(client, user_headers, community_ctx):
+    """
+    用例32：广场 feed 排序。
+
+    建两帖（A 先于 B），他人点赞 A → latest 中 B 在前，hot 中 A 在前。
+    """
+    resp = client.post(
+        "/api/community/posts",
+        headers=user_headers,
+        json={"title": "热度帖A", "text": "被点赞的帖子"},
+    )
+    assert resp.status_code == 200 and resp.json()["success"] is True, resp.text
+    post_a = resp.json()["data"]
+    resp = client.post(
+        "/api/community/posts", headers=user_headers, json={"title": "新帖B", "text": "最新的帖子"}
+    )
+    assert resp.status_code == 200, resp.text
+    post_b = resp.json()["data"]
+
+    # 他人点赞 A
+    other_headers, _ = register_and_login(client)
+    resp = client.post(f"/api/community/posts/{post_a['id']}/like", headers=other_headers)
+    assert resp.status_code == 200 and resp.json()["data"]["like_count"] == 1, resp.text
+
+    latest = client.get(
+        "/api/community/feed", headers=user_headers, params={"sort": "latest", "size": 50}
+    ).json()["data"]
+    ids_latest = [p["id"] for p in latest["posts"]]
+    assert post_a["id"] in ids_latest and post_b["id"] in ids_latest
+    assert ids_latest.index(post_b["id"]) < ids_latest.index(post_a["id"]), "latest 应按时间倒序"
+
+    hot = client.get(
+        "/api/community/feed", headers=user_headers, params={"sort": "hot", "size": 50}
+    ).json()["data"]
+    ids_hot = [p["id"] for p in hot["posts"]]
+    assert ids_hot.index(post_a["id"]) < ids_hot.index(post_b["id"]), "被赞的 A 热门排序应靠前"
+
+
+def test_33_like_idempotent_and_unlike(client, user_headers, community_ctx):
+    """用例33：点赞幂等与取消（重复点赞计数不涨、重复取消无副作用、liked 状态正确）。"""
+    other_headers, _ = register_and_login(client)
+    post_id = community_ctx["post"]["id"]
+
+    r1 = client.post(f"/api/community/posts/{post_id}/like", headers=other_headers).json()["data"]
+    r2 = client.post(f"/api/community/posts/{post_id}/like", headers=other_headers).json()["data"]
+    assert r1["like_count"] == r2["like_count"], "重复点赞应幂等"
+
+    detail = client.get(f"/api/community/posts/{post_id}", headers=other_headers).json()["data"]
+    assert detail["liked"] is True
+
+    r3 = client.delete(f"/api/community/posts/{post_id}/like", headers=other_headers).json()["data"]
+    assert r3["liked"] is False
+    r4 = client.delete(f"/api/community/posts/{post_id}/like", headers=other_headers).json()["data"]
+    assert r4["like_count"] == r3["like_count"], "重复取消应幂等"
+
+    detail = client.get(f"/api/community/posts/{post_id}", headers=other_headers).json()["data"]
+    assert detail["liked"] is False
+
+
+def test_34_comments_two_level(client, user_headers, community_ctx):
+    """
+    用例34：两级评论。
+
+    他人发顶级评论 → 作者回复（楼中楼）→ 列表分层正确 →
+    回复目标为回复（三级嵌套）被 400 拒绝。
+    """
+    other_headers, _ = register_and_login(client)
+    post_id = community_ctx["post"]["id"]
+    before = client.get(f"/api/community/posts/{post_id}", headers=user_headers).json()["data"][
+        "comment_count"
+    ]
+
+    resp = client.post(
+        f"/api/community/posts/{post_id}/comments",
+        headers=other_headers,
+        json={"content": "请问住哪家酒店？"},
+    )
+    assert resp.status_code == 200 and resp.json()["success"] is True, resp.text
+    top_id = resp.json()["data"]["id"]
+
+    resp = client.post(
+        f"/api/community/posts/{post_id}/comments",
+        headers=user_headers,
+        json={"content": "推荐西湖边的老牌酒店", "parent_id": top_id},
+    )
+    assert resp.status_code == 200 and resp.json()["success"] is True, resp.text
+    reply_id = resp.json()["data"]["id"]
+
+    comments = client.get(
+        f"/api/community/posts/{post_id}/comments", headers=user_headers
+    ).json()["data"]["comments"]
+    top = next(c for c in comments if c["id"] == top_id)
+    assert [r["id"] for r in top["replies"]] == [reply_id], "回复应挂到顶级评论的 replies"
+
+    # 三级嵌套拒绝
+    resp = client.post(
+        f"/api/community/posts/{post_id}/comments",
+        headers=user_headers,
+        json={"content": "再嵌套一层", "parent_id": reply_id},
+    )
+    assert resp.status_code == 400
+
+    after = client.get(f"/api/community/posts/{post_id}", headers=user_headers).json()["data"][
+        "comment_count"
+    ]
+    assert after == before + 2
+
+
+def test_35_fork_copies_completed_plan(client, user_headers, plan_ctx, community_ctx):
+    """
+    用例35：照着走。
+
+    原行程出发日在未来 → 新行程日期保持不变；city/城市行程一致、归属当前用户；
+    无 plan_id 的帖子 fork 被 400 拒绝（日期平移逻辑由单元测试覆盖跨月场景）。
+    """
+    orig_plan_id = plan_ctx["plan_id"]
+    orig = client.get(f"/api/trip/{orig_plan_id}", headers=user_headers).json()["data"]["plan"]
+
+    post_id = community_ctx["post"]["id"]
+    resp = client.post(f"/api/community/posts/{post_id}/fork", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"照着走失败: {resp.text}"
+    new_plan_id = resp.json()["data"]["plan_id"]
+    assert new_plan_id != orig_plan_id
+    assert resp.json()["data"]["start_date"] == orig["start_date"], "原行程在未来，日期应保持不变"
+
+    # 新行程归属当前用户且可直接访问（status=completed）
+    detail = client.get(f"/api/trip/{new_plan_id}", headers=user_headers)
+    assert detail.status_code == 200, f"新行程访问失败: {detail.text}"
+    assert detail.json()["data"]["status"] == "completed"
+    assert detail.json()["data"]["plan"]["city"] == orig["city"]
+
+    # 出现在我的行程列表
+    mine = client.get("/api/trip/my/list", headers=user_headers).json()["data"]["plans"]
+    assert new_plan_id in {p["plan_id"] for p in mine}
+
+    # 无 plan_id 的帖子 → 400
+    resp = client.post(
+        "/api/community/posts",
+        headers=user_headers,
+        json={"title": "无行程帖", "text": "没有关联行程"},
+    )
+    bare_post_id = resp.json()["data"]["id"]
+    resp = client.post(f"/api/community/posts/{bare_post_id}/fork", headers=user_headers)
+    assert resp.status_code == 400
+
+
+def test_36_upload_image_validation(client, user_headers):
+    """用例36：图片上传（jpg 成功并可经 /uploads 匿名访问；txt 415；超 5MB 413）。"""
+    jpeg = b"\xff\xd8\xff\xe0" + b"0" * 128 + b"\xff\xd9"
+    resp = client.post(
+        "/api/upload", headers=user_headers, files={"file": ("a.jpg", jpeg, "image/jpeg")}
+    )
+    assert resp.status_code == 200 and resp.json()["success"] is True, resp.text
+    url = resp.json()["data"]["url"]
+    assert url.startswith("/uploads/IMG_") and url.endswith(".jpg")
+
+    # 静态访问无需登录
+    static = client.get(url)
+    assert static.status_code == 200 and static.content == jpeg
+
+    # 非图片类型 → 415
+    resp = client.post(
+        "/api/upload", headers=user_headers, files={"file": ("a.txt", b"hello", "text/plain")}
+    )
+    assert resp.status_code == 415
+
+    # 超过 5MB → 413
+    big = b"\xff\xd8\xff\xe0" + b"0" * (5 * 1024 * 1024) + b"\xff\xd9"
+    resp = client.post(
+        "/api/upload", headers=user_headers, files={"file": ("big.jpg", big, "image/jpeg")}
+    )
+    assert resp.status_code == 413

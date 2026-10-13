@@ -20,6 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_owned_plan_for_user
+from app.api.routes.community import _build_summary, _shift_dates
 from app.api.routes.trip import _calculate_days
 from app.db.base import Base
 from app.models.db_models import TripPlanDB, User
@@ -445,3 +446,65 @@ async def test_archive_stats_aggregates_cities_and_checkins():
     finally:
         await session.close()
         await engine.dispose()
+
+
+# ==================== community._shift_dates / _build_summary ====================
+
+
+def _sample_plan() -> dict:
+    """构造一份跨月行程样例（含 plan_data 逐日与 request_data 日期）。"""
+    return {
+        "start_date": "2026-10-30",
+        "end_date": "2026-11-02",
+        "plan_data": {
+            "day_plans": [
+                {"date": "2026-10-30", "attractions": []},
+                {"date": "2026-10-31"},
+                {"date": "2026-11-01"},
+                {"date": "2026-11-02"},
+            ]
+        },
+        "request_data": {"start_date": "2026-10-30", "end_date": "2026-11-02"},
+    }
+
+
+def test_shift_dates_moves_all_fields_across_month():
+    """日期平移：起止日/逐日/request_data 同步 +3 天，且跨月正确（10-30 → 11-02）。"""
+    plan = _sample_plan()
+    _shift_dates(plan, 3)
+    assert plan["start_date"] == "2026-11-02"
+    assert plan["end_date"] == "2026-11-05"
+    assert [d["date"] for d in plan["plan_data"]["day_plans"]] == [
+        "2026-11-02",
+        "2026-11-03",
+        "2026-11-04",
+        "2026-11-05",
+    ]
+    assert plan["request_data"]["start_date"] == "2026-11-02"
+    assert plan["request_data"]["end_date"] == "2026-11-05"
+
+
+def test_shift_dates_noop_when_not_past():
+    """原行程在未来：delta<=0 时不平移（照着走保持原日期）。"""
+    plan = _sample_plan()
+    _shift_dates(plan, 0)
+    _shift_dates(plan, -5)
+    assert plan["start_date"] == "2026-10-30"
+
+
+def test_build_summary_joins_sections_and_truncates():
+    """摘要生成：拼接分节正文、去换行、截前 80 字。"""
+    sections = [
+        {"title": "第一天", "text": "西湖边散步。\n雨中漫游"},
+        {"title": "第二天", "text": "灵隐寺祈福" * 60},
+    ]
+    summary = _build_summary(sections)
+    assert "\n" not in summary
+    assert summary.startswith("西湖边散步。雨中漫游灵隐寺祈福")
+    assert len(summary) == 80
+
+
+def test_build_summary_empty_sections():
+    """空分节生成空摘要（纯路线帖场景）。"""
+    assert _build_summary(None) == ""
+    assert _build_summary([]) == ""
