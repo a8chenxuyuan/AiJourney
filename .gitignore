@@ -8,6 +8,7 @@ backend/.env
 backend/*.db
 backend/data/
 backend/logs/
+backend/uploads/
 backend/server.err
 backend/server.out
 backend/uvicorn*.log
