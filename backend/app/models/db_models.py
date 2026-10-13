@@ -481,3 +481,86 @@ class TripJournal(Base):
     generated_at = Column(DateTime, nullable=True, comment="生成完成时间")
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), comment="更新时间")
+
+
+class CommunityPost(Base):
+    """
+    社区帖子表。
+
+    统一承载三种内容来源：journal（游记转发）/ manual（手动图文）/ route（纯路线），
+    plan_id / journal_id 均可空，feed 无需 UNION。冗余计数与 summary 让列表页零 JOIN、
+    不拉 content JSON；点赞/评论接口用 UPDATE x = x + 1 原子增减。
+    plan_id 被删时由删行程逻辑置 NULL（帖子仍可浏览，「照着走」按钮消失）。
+    """
+
+    __tablename__ = "community_posts"
+
+    id = Column(String(64), primary_key=True, index=True, comment="帖子 ID（CP_{uuid}）")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="作者 ID")
+    plan_id = Column(
+        String(64),
+        ForeignKey("trip_plans.id"),
+        nullable=True,
+        index=True,
+        comment="来源行程 ID（游记转发/路线帖有值，「照着走」依赖）",
+    )
+    journal_id = Column(
+        String(64),
+        ForeignKey("trip_journals.id"),
+        nullable=True,
+        comment="来源游记 ID（游记转发时有值，详情页可回跳）",
+    )
+    post_type = Column(
+        String(20), nullable=False, comment="帖子类型：journal/manual/route"
+    )
+    title = Column(String(100), nullable=False, comment="标题")
+    summary = Column(
+        String(200), nullable=False, default="", comment="feed 卡片摘要（发布时从内容截取）"
+    )
+    content = Column(JSON, nullable=True, comment="分节图文 [{day_index,title,text,photos}]")
+    cover_url = Column(String(255), nullable=True, comment="封面图 URL")
+    tags = Column(JSON, nullable=True, comment="标签列表 [\"美食\", \"亲子\"]")
+    like_count = Column(Integer, nullable=False, default=0, comment="点赞数（冗余）")
+    comment_count = Column(Integer, nullable=False, default=0, comment="评论数（冗余）")
+    view_count = Column(Integer, nullable=False, default=0, comment="浏览数（冗余）")
+    status = Column(
+        String(20), nullable=False, default="published", comment="状态：published/hidden"
+    )
+    created_at = Column(DateTime, default=func.now(), index=True, comment="创建时间")
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), comment="更新时间")
+
+
+class PostLike(Base):
+    """帖子点赞表。唯一约束防重复点赞，冲突即幂等返回。"""
+
+    __tablename__ = "post_likes"
+    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_post_like"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_id = Column(
+        String(64), ForeignKey("community_posts.id"), nullable=False, index=True, comment="帖子 ID"
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="点赞人 ID"
+    )
+    created_at = Column(DateTime, default=func.now(), comment="点赞时间")
+
+
+class PostComment(Base):
+    """
+    帖子评论表。仅支持二级评论：顶级评论 parent_id 为 NULL，回复指向顶级评论，
+    不做无限嵌套（前端一次全拉按 parent_id 分组展示）。
+    """
+
+    __tablename__ = "post_comments"
+
+    id = Column(String(64), primary_key=True, index=True, comment="评论 ID（CM_{uuid}）")
+    post_id = Column(
+        String(64), ForeignKey("community_posts.id"), nullable=False, index=True, comment="帖子 ID"
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="评论人 ID"
+    )
+    parent_id = Column(String(64), nullable=True, comment="父评论 ID（仅二级：指向顶级评论）")
+    content = Column(String(500), nullable=False, comment="评论内容")
+    created_at = Column(DateTime, default=func.now(), comment="评论时间")

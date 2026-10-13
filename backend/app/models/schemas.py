@@ -744,3 +744,74 @@ class JournalOut(BaseModel):
     is_public: bool = Field(default=False, description="是否公开")
     public_token: str | None = Field(None, description="公开访问令牌")
     generated_at: datetime | None = Field(None, description="生成完成时间")
+
+
+class PostCreateRequest(BaseModel):
+    """
+    发布帖子请求（一个接口兼容三种来源）。
+
+    - journal_id 有值：游记转发，sections/cover_url/plan_id 缺省从游记取；
+    - text 有值：包装为单 section 的 manual 帖；
+    - 仅 plan_id 无正文：route 纯路线帖。
+    """
+
+    title: str = Field(..., min_length=1, max_length=100, description="标题")
+    tags: list[str] = Field(default_factory=list, max_length=5, description="标签（最多 5 个）")
+    cover_url: str | None = Field(None, max_length=255, description="封面图 URL")
+    sections: list[JournalSection] | None = Field(None, description="分节图文内容")
+    text: str | None = Field(None, max_length=5000, description="纯文本正文（快速发帖）")
+    journal_id: str | None = Field(None, description="来源游记 ID（游记转发时传入）")
+    plan_id: str | None = Field(None, description="关联行程 ID（供「照着走」）")
+
+
+class PostOut(BaseModel):
+    """帖子 feed 卡片响应（不含 content JSON，列表页免拉全量）。"""
+
+    id: str = Field(..., description="帖子 ID")
+    user_id: int = Field(..., description="作者用户 ID")
+    author: str = Field(..., description="作者昵称")
+    post_type: str = Field(..., description="帖子类型：journal/manual/route")
+    title: str = Field(..., description="标题")
+    summary: str = Field(default="", description="摘要")
+    cover_url: str | None = Field(None, description="封面图 URL")
+    tags: list[str] = Field(default_factory=list, description="标签")
+    plan_id: str | None = Field(None, description="关联行程 ID（有值可「照着走」）")
+    like_count: int = Field(default=0, description="点赞数")
+    comment_count: int = Field(default=0, description="评论数")
+    view_count: int = Field(default=0, description="浏览数")
+    created_at: datetime = Field(..., description="发布时间")
+
+
+class PostDetailOut(PostOut):
+    """帖子详情响应（含分节内容与当前用户点赞状态）。"""
+
+    sections: list[JournalSection] = Field(default_factory=list, description="分节图文内容")
+    liked: bool = Field(default=False, description="当前用户是否已点赞")
+
+
+class CommentCreateRequest(BaseModel):
+    """发评论请求。parent_id 有值表示回复某条顶级评论（仅支持二级）。"""
+
+    content: str = Field(..., min_length=1, max_length=500, description="评论内容")
+    parent_id: str | None = Field(None, description="父评论 ID（须为本帖顶级评论）")
+
+
+class CommentOut(BaseModel):
+    """单条评论响应（顶级评论携带 replies 楼中楼，仅一层）。"""
+
+    id: str = Field(..., description="评论 ID")
+    user_id: int = Field(..., description="评论人用户 ID")
+    author: str = Field(..., description="评论人昵称")
+    content: str = Field(..., description="评论内容")
+    created_at: datetime = Field(..., description="评论时间")
+    replies: list["CommentOut"] = Field(default_factory=list, description="回复列表")
+
+
+class FeedOut(BaseModel):
+    """广场 feed 分页响应。"""
+
+    posts: list[PostOut] = Field(default_factory=list, description="帖子卡片列表")
+    total: int = Field(default=0, description="总数")
+    page: int = Field(default=1, description="当前页码")
+    size: int = Field(default=10, description="每页条数")
+    has_more: bool = Field(default=False, description="是否还有下一页")

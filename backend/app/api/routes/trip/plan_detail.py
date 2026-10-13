@@ -2,12 +2,13 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
-from sqlalchemy import delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_accessible_plan, get_current_user
 from app.db.session import get_db
 from app.models.db_models import (
+    CommunityPost,
     PlanCollaborator,
     PlanFeedback,
     PlanInvite,
@@ -113,6 +114,21 @@ async def delete_plan(
     await session.execute(delete(PlanLogDB).where(PlanLogDB.plan_id == plan_id))
     await session.execute(delete(PlanNotification).where(PlanNotification.plan_id == plan_id))
     await session.execute(delete(TripCheckin).where(TripCheckin.plan_id == plan_id))
+    # 帖子内容发布时已拷贝，行程删除后帖子仍可浏览，仅置空回链（「照着走」按钮消失）
+    journal_ids = (
+        (await session.execute(select(TripJournal.id).where(TripJournal.plan_id == plan_id)))
+        .scalars()
+        .all()
+    )
+    if journal_ids:
+        await session.execute(
+            update(CommunityPost)
+            .where(CommunityPost.journal_id.in_(journal_ids))
+            .values(journal_id=None)
+        )
+    await session.execute(
+        update(CommunityPost).where(CommunityPost.plan_id == plan_id).values(plan_id=None)
+    )
     await session.execute(delete(TripJournal).where(TripJournal.plan_id == plan_id))
     await session.delete(plan)
     await session.commit()
