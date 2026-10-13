@@ -27,7 +27,9 @@ export interface PostItem {
   zone: 'circle' | 'note' | string
   title: string
   summary: string
+  text: string
   cover_url: string | null
+  photos: string[]
   tags: string[]
   plan_id: string | null
   like_count: number

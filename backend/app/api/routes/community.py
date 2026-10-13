@@ -80,8 +80,23 @@ def _build_summary(sections: list[dict] | None) -> str:
     return text.replace("\r", "").replace("\n", "").strip()[:80]
 
 
+def _full_text(sections: list[dict] | None) -> str:
+    """拼接分节正文全文（不截断），供旅行圈 MomentCard 展开全文。"""
+    return "".join(s.get("text") or "" for s in sections or []).strip()
+
+
+def _collect_photos(sections: list[dict] | None) -> list[str]:
+    """从分节内容收集照片 URL（去重保序），供旅行圈 MomentCard 九宫格渲染。"""
+    seen: dict[str, None] = {}
+    for section in sections or []:
+        for p in section.get("photos") or []:
+            if p and p not in seen:
+                seen[p] = None
+    return list(seen)
+
+
 def _post_out(post: CommunityPost, author: str) -> dict:
-    """帖子行 → feed 卡片 dict（不含 content JSON）。"""
+    """帖子行 → feed 卡片 dict（不含 content JSON，照片单独提平）。"""
     return {
         "id": post.id,
         "user_id": post.user_id,
@@ -90,7 +105,9 @@ def _post_out(post: CommunityPost, author: str) -> dict:
         "zone": post.zone or "note",
         "title": post.title,
         "summary": post.summary,
+        "text": _full_text(post.content),
         "cover_url": post.cover_url,
+        "photos": _collect_photos(post.content),
         "tags": post.tags or [],
         "plan_id": post.plan_id,
         "like_count": post.like_count,
