@@ -58,9 +58,5 @@ arq==0.28.0                   # 基于 Redis 的异步任务队列
 redis==5.3.1                  # Redis 客户端（arq 依赖）
 hiredis==3.4.2                # Redis C 协议解析器，提升吞吐
 
-# 测试依赖（开发环境）
-pytest==8.3.5                 # 测试框架
-pytest-asyncio==0.25.3        # pytest 异步用例支持（asyncio_mode=auto）
-
 # 支付（沙箱）
 # alipay-sdk-python>=4.2.0    # 支付宝 Python SDK（可选）
