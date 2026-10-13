@@ -18,8 +18,24 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import agent, auth, collab, crawler, map, memory, payment, poi, rag, trip, user
+from app.api.routes import (
+    agent,
+    auth,
+    collab,
+    community,
+    crawler,
+    map,
+    memory,
+    payment,
+    poi,
+    rag,
+    trip,
+    upload,
+    user,
+)
+from app.api.routes.upload import UPLOAD_DIR
 from app.config import settings
 from app.db.init_db import init_db
 from app.utils.logger import setup_logging
@@ -78,6 +94,11 @@ app.include_router(rag.router, prefix="/api/rag", tags=["知识库"])
 app.include_router(memory.router, prefix="/api/memory", tags=["记忆"])
 app.include_router(crawler.router, prefix="/api/crawler", tags=["爬虫"])
 app.include_router(payment.router, prefix="/api/payment", tags=["支付"])
+app.include_router(community.router, prefix="/api/community", tags=["社区"])
+app.include_router(upload.router, prefix="/api/upload", tags=["上传"])
+
+# 上传图片静态服务：/uploads/IMG_xxx.jpg 直接访问 backend/uploads 下的文件
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/api/health", tags=["健康检查"])
