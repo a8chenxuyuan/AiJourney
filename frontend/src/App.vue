@@ -2,7 +2,7 @@
   src/App.vue：应用根组件
   作用：提供全局布局（左侧毛玻璃侧边栏 + 右侧内容区）与路由出口（router-view），
        控制登录/未登录状态下的导航展示；登录/注册页使用无侧边栏的裸布局。
-  设计说明：侧边栏集中品牌、导航（首页/旅行社区/个人中心）与用户卡片，
+  设计说明：侧边栏集中品牌、导航（首页/旅行圈/旅行笔记/个人中心）与用户卡片，
            激活项用品牌渐变高亮，整体风格由 design-system.css 统一约束。
 -->
 
@@ -68,7 +68,7 @@ const handleLogout = () => {
         <div class="app-logo-name">agent1<span style="color: var(--brand);">旅行</span></div>
       </div>
 
-      <!-- 导航：首页 / 旅行社区 / 个人中心 -->
+      <!-- 导航：首页 / 旅行圈 / 旅行笔记 / 个人中心 -->
       <nav class="app-side-nav">
         <button class="app-side-link" :class="{ active: isActive('/') }" @click="router.push('/')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
@@ -76,11 +76,19 @@ const handleLogout = () => {
         </button>
         <button
           class="app-side-link"
-          :class="{ active: isActive('/community') }"
-          @click="router.push('/community')"
+          :class="{ active: isActive('/circle') }"
+          @click="router.push('/circle')"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-          <span>旅行社区</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
+          <span>旅行圈</span>
+        </button>
+        <button
+          class="app-side-link"
+          :class="{ active: isActive('/notes') }"
+          @click="router.push('/notes')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>
+          <span>旅行笔记</span>
         </button>
         <button
           v-if="authStore.isAuthenticated"

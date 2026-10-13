@@ -633,7 +633,7 @@ const onEndDateChange = (_date: any, dateString: string) => {
         <span class="section-head-tag">🧭 可复制的路线</span>
       </div>
       <div style="display: flex; align-items: center;">
-        <router-link to="/community" style="font-weight: 600;">进入旅行社区 →</router-link>
+        <router-link to="/notes" style="font-weight: 600;">进入旅行笔记 →</router-link>
       </div>
     </section>
 

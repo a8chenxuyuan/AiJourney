@@ -24,6 +24,7 @@ export interface PostItem {
   user_id: number
   author: string
   post_type: 'journal' | 'manual' | 'route' | string
+  zone: 'circle' | 'note' | string
   title: string
   summary: string
   cover_url: string | null
@@ -72,6 +73,7 @@ export interface CommentItem {
  */
 export interface CreatePostParams {
   title: string
+  zone?: 'circle' | 'note' | string
   tags?: string[]
   cover_url?: string | null
   sections?: PostSection[]
@@ -88,14 +90,18 @@ export function createPost(params: CreatePostParams): Promise<StandardResponse<P
 }
 
 /**
- * getFeed：广场 feed（sort=latest 最新 | hot 热门）
+ * getFeed：广场 feed（zone 过滤分区：circle 旅行圈 | note 旅行笔记，不传=全部；
+ * sort=latest 最新 | hot 热门）
  */
 export function getFeed(
+  zone: 'circle' | 'note' | null,
   sort: 'latest' | 'hot' = 'latest',
   page = 1,
   size = 10
 ): Promise<StandardResponse<FeedData>> {
-  return httpGet<FeedData>('/community/feed', { params: { sort, page, size } })
+  return httpGet<FeedData>('/community/feed', {
+    params: { ...(zone ? { zone } : {}), sort, page, size }
+  })
 }
 
 /**

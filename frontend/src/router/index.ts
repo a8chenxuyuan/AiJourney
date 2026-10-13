@@ -21,8 +21,9 @@ import Today from '@/views/Today.vue'
 import Footprints from '@/views/Footprints.vue'
 import Journal from '@/views/Journal.vue'
 import Archive from '@/views/Archive.vue'
-// 引入旅行社区两页（广场 / 帖子详情）
-import Community from '@/views/Community.vue'
+// 引入旅行社区两页（旅行圈 / 旅行笔记）与帖子详情
+import Circle from '@/views/Circle.vue'
+import Notes from '@/views/Notes.vue'
 import PostDetail from '@/views/PostDetail.vue'
 // 引入用户认证 store，用于路由守卫判断登录状态
 import { useAuthStore } from '@/stores/auth'
@@ -99,13 +100,22 @@ const routes: RouteRecordRaw[] = [
     component: Journal,
     meta: { title: '旅行游记' }
   },
-  // /community：社区广场（最新/热门 feed + 发布）
+  // /circle：旅行圈（朋友圈式晒旅行生活，瀑布流照片卡）
   {
-    path: '/community',
-    name: 'Community',
-    component: Community,
-    meta: { title: '旅行社区' }
+    path: '/circle',
+    name: 'Circle',
+    component: Circle,
+    meta: { title: '旅行圈' }
   },
+  // /notes：旅行笔记（攻略/游记/路线列表流）
+  {
+    path: '/notes',
+    name: 'Notes',
+    component: Notes,
+    meta: { title: '旅行笔记' }
+  },
+  // /community：旧社区链接兼容，重定向到旅行笔记
+  { path: '/community', redirect: '/notes' },
   // /community/:id：帖子详情（分节图文/点赞/评论/照着走）
   {
     path: '/community/:id',

@@ -1,5 +1,5 @@
 <!--
-  src/views/Community.vue：社区广场
+  src/views/Notes.vue：旅行笔记（原社区广场迁移，仅展示 zone=note 分区）
   作用：最新/热门双排序 feed（滚动加载）+ 发布弹窗（手动图文/关联行程/图片上传）
   设计：仪表盘式多模块布局——统计速览行（笔记/可照着走/浏览/点赞 4 格数据卡）+
        列表流 feed（一条一条，适合沉浸阅读）+ 右侧信息栏（玩法引导/活跃旅行者/
@@ -117,7 +117,7 @@ const loadFeed = async (reset = false) => {
   loading.value = true
   try {
     const page = reset ? 1 : posts.value.length / 10 + 1
-    const res = await getFeed(sort.value, page, 10)
+    const res = await getFeed('note', sort.value, page, 10)
     if (res.success && res.data) {
       posts.value = reset ? res.data.posts : [...posts.value, ...res.data.posts]
       total.value = res.data.total
@@ -293,6 +293,7 @@ const publish = async () => {
   try {
     const params: CreatePostParams = {
       title,
+      zone: 'note',
       tags: pubTags.value,
       plan_id: pubPlanId.value
     }

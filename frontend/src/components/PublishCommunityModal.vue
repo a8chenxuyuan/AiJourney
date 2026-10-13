@@ -1,15 +1,19 @@
 <!--
   src/components/PublishCommunityModal.vue：发布到社区弹窗（游记转发）
-  作用：Journal 页与 Result 页共用，填标题/标签后携带 journal_id 一键发布
+  作用：Journal 页与 Result 页共用，填标题/标签后携带 journal_id 一键发布到旅行笔记分区
 -->
 
 <script setup lang="ts">
-// 引入 Vue 响应式 API
+// 引入 Vue 组合式 API 与路由
 import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 // 引入 Ant Design Vue 组件
 import { Modal, Input, Select, message } from 'ant-design-vue'
 // 引入社区发布 API
 import { createPost } from '@/api/community'
+
+// 路由：发布成功后跳转旅行笔记列表
+const router = useRouter()
 
 // 组件入参：visible 控制显隐，journalId 来源游记，defaultTitle/defaultTags 作为草稿初值
 const props = defineProps<{
@@ -56,13 +60,15 @@ const submit = async () => {
   try {
     const res = await createPost({
       title: title.value.trim(),
+      zone: 'note',
       tags: tags.value,
       journal_id: props.journalId
     })
     if (res.success) {
-      message.success('已发布到社区')
+      message.success('已发布到旅行笔记')
       close()
       emit('success')
+      router.push('/notes')
     }
   } catch {
     // 请求层已统一提示错误

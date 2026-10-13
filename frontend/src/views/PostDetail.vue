@@ -134,14 +134,19 @@ const sendComment = async () => {
 // ==================== 删帖（仅作者） ====================
 
 /**
- * handleDelete：删除后返回社区
+ * backZone：按帖子分区返回对应列表页（旅行圈 / 旅行笔记）
+ */
+const backZone = () => router.push(post.value?.zone === 'circle' ? '/circle' : '/notes')
+
+/**
+ * handleDelete：删除后返回所属分区列表
  */
 const handleDelete = async () => {
   try {
     const res = await deletePost(postId)
     if (res.success) {
       message.success('帖子已删除')
-      router.push('/community')
+      backZone()
     }
   } catch {
     // 请求层已统一提示
@@ -184,7 +189,9 @@ onMounted(() => {
   <div class="page-fade" style="max-width: 820px; margin: 0 auto; padding: 0 16px;">
     <!-- 返回 + 删帖 -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 24px 0 8px;">
-      <Button type="link" style="padding: 0;" @click="router.push('/community')">← 返回社区</Button>
+      <Button type="link" style="padding: 0;" @click="backZone()">
+        ← {{ post?.zone === 'circle' ? '返回旅行圈' : '返回旅行笔记' }}
+      </Button>
       <Popconfirm
         v-if="post && post.user_id === auth.user?.id"
         title="确定删除这篇帖子？点赞与评论会一并删除"
