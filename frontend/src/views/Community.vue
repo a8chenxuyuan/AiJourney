@@ -1,9 +1,10 @@
 <!--
   src/views/Community.vue：社区广场
   作用：最新/热门双排序 feed（滚动加载）+ 发布弹窗（手动图文/关联行程/图片上传）
-  设计：列表流布局（一条一条，适合文字为主的沉浸阅读）+ 右侧信息栏（玩法引导/
-       热门标签/社区数据）填充版面；帖子卡完整七要素：类型角标、标题、摘要、
-       标签、作者、相对时间、浏览/点赞/评论数 + 封面缩略图
+  设计：仪表盘式多模块布局——统计速览行（笔记/可照着走/浏览/点赞 4 格数据卡）+
+       列表流 feed（一条一条，适合沉浸阅读）+ 右侧信息栏（玩法引导/活跃旅行者/
+       热门标签）+ 底部发布 CTA；帖子卡七要素：类型角标、标题、摘要、标签、
+       作者、相对时间、浏览/点赞/评论数 + 封面缩略图（无封面用类型图标块补位）
 -->
 
 <script setup lang="ts">
@@ -63,10 +64,10 @@ const relTime = (s: string) => {
 /**
  * typeMeta：帖子类型 → 角标文案与配色 class
  */
-const typeMeta: Record<string, { label: string; cls: string }> = {
-  journal: { label: '游记', cls: 'is-journal' },
-  route: { label: '路线', cls: 'is-route' },
-  manual: { label: '图文', cls: 'is-manual' }
+const typeMeta: Record<string, { label: string; cls: string; emoji: string }> = {
+  journal: { label: '游记', cls: 'is-journal', emoji: '📖' },
+  route: { label: '路线', cls: 'is-route', emoji: '🗺️' },
+  manual: { label: '图文', cls: 'is-manual', emoji: '📸' }
 }
 
 // filteredPosts：应用标签筛选后的列表（无筛选时与 posts 相同）
@@ -84,10 +85,22 @@ const topTags = computed(() => {
     .map(([name, count]) => ({ name, count }))
 })
 
-// 社区数据卡：笔记用服务端 total；浏览/点赞/可照着走基于已加载内容聚合
+// 社区统计：笔记用服务端 total；浏览/点赞/可照着走基于已加载内容聚合
 const sumViews = computed(() => posts.value.reduce((s, p) => s + p.view_count, 0))
 const sumLikes = computed(() => posts.value.reduce((s, p) => s + p.like_count, 0))
 const forkableCount = computed(() => posts.value.filter((p) => p.plan_id).length)
+
+// topUsers：从已加载帖子按作者聚合发帖数与获赞，取前 5（活跃旅行者卡）
+const topUsers = computed(() => {
+  const m = new Map<string, { name: string; posts: number; likes: number }>()
+  posts.value.forEach((p) => {
+    const u = m.get(p.author) || { name: p.author, posts: 0, likes: 0 }
+    u.posts += 1
+    u.likes += p.like_count
+    m.set(p.author, u)
+  })
+  return [...m.values()].sort((a, b) => b.posts - a.posts || b.likes - a.likes).slice(0, 5)
+})
 
 /**
  * toggleTag：切换标签筛选
@@ -314,6 +327,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 
 <template>
   <div class="page-fade community-page">
+    <div class="cm-inner">
     <!-- 顶部 Hero：渐变横幅 + 排序 + 发布 -->
     <section class="cm-hero">
       <div class="cm-hero-copy">
@@ -331,6 +345,27 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
       <span class="cm-hero-emoji cm-hero-emoji-2">🧭</span>
     </section>
 
+    <!-- 统计速览行：4 格数据卡 -->
+    <section class="cm-stats">
+      <div class="cm-stat">
+        <span class="cm-stat-icon is-blue">📄</span>
+        <div class="cm-stat-body"><b>{{ total }}</b><span>篇旅行笔记</span></div>
+      </div>
+      <div class="cm-stat">
+        <span class="cm-stat-icon is-cyan">🧭</span>
+        <div class="cm-stat-body"><b>{{ forkableCount }}</b><span>条可照着走的路线</span></div>
+      </div>
+      <div class="cm-stat">
+        <span class="cm-stat-icon is-violet">👀</span>
+        <div class="cm-stat-body"><b>{{ sumViews }}</b><span>次浏览</span></div>
+      </div>
+      <div class="cm-stat">
+        <span class="cm-stat-icon is-orange">❤️</span>
+        <div class="cm-stat-body"><b>{{ sumLikes }}</b><span>次点赞</span></div>
+      </div>
+    </section>
+    <p class="cm-stats-note">浏览 / 点赞 / 活跃作者基于当前已加载内容统计</p>
+
     <!-- 主体两栏：左列表 + 右信息栏 -->
     <div class="cm-layout">
       <!-- 左列：帖子列表（一条一条） -->
@@ -344,7 +379,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
         <article
           v-for="post in filteredPosts"
           :key="post.id"
-          class="cm-item"
+          :class="['cm-item', `t-${post.post_type}`]"
           @click="goDetail(post.id)"
         >
           <!-- 作者头像 -->
@@ -375,7 +410,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
             </div>
           </div>
 
-          <!-- 右侧封面缩略图（无封面不占位） -->
+          <!-- 右侧封面缩略图；无封面用类型图标块补位 -->
           <img
             v-if="post.cover_url"
             class="ci-cover"
@@ -383,6 +418,9 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
             :alt="post.title"
             loading="lazy"
           />
+          <div v-else class="ci-thumb-ph" :class="typeMeta[post.post_type]?.cls || 'is-manual'">
+            <span>{{ typeMeta[post.post_type]?.emoji || '📸' }}</span>
+          </div>
         </article>
 
         <!-- 空状态 -->
@@ -396,8 +434,8 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 
       <!-- 右列：信息栏 -->
       <aside class="cm-rail">
-        <!-- 社区玩法引导 -->
-        <section class="rail-card">
+        <!-- 社区玩法引导（深色卡） -->
+        <section class="rail-card rail-play">
           <h4>社区怎么玩</h4>
           <ol class="rail-steps">
             <li><i>1</i><div><b>规划行程</b><span>AI 帮你定制路线</span></div></li>
@@ -405,6 +443,22 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
             <li><i>3</i><div><b>生成游记</b><span>AI 一键写好图文</span></div></li>
             <li><i>4</i><div><b>发布 · 照着走</b><span>把路线分享给他人</span></div></li>
           </ol>
+        </section>
+
+        <!-- 活跃旅行者（按已加载内容聚合作者维度） -->
+        <section class="rail-card">
+          <h4>活跃旅行者</h4>
+          <ul v-if="topUsers.length" class="rail-users">
+            <li v-for="(u, i) in topUsers" :key="u.name">
+              <span class="ru-rank" :class="{ 'is-top': i < 3 }">{{ i + 1 }}</span>
+              <span class="ru-avatar">{{ u.name.charAt(0).toUpperCase() }}</span>
+              <div class="ru-info">
+                <b>{{ u.name }}</b>
+                <span>{{ u.posts }} 篇笔记 · {{ u.likes }} 获赞</span>
+              </div>
+            </li>
+          </ul>
+          <p v-else class="rail-empty">还没有活跃作者，发第一篇笔记试试</p>
         </section>
 
         <!-- 热门标签 -->
@@ -420,18 +474,6 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
           </div>
           <p v-else class="rail-empty">发帖时添加标签，就会出现在这里</p>
         </section>
-
-        <!-- 社区数据 -->
-        <section class="rail-card">
-          <h4>社区数据</h4>
-          <div class="rail-stats">
-            <div><b>{{ total }}</b><span>笔记</span></div>
-            <div><b>{{ sumViews }}</b><span>浏览</span></div>
-            <div><b>{{ sumLikes }}</b><span>点赞</span></div>
-            <div><b>{{ forkableCount }}</b><span>可照着走</span></div>
-          </div>
-          <p class="rail-note">浏览 / 点赞基于当前已加载内容统计</p>
-        </section>
       </aside>
     </div>
 
@@ -440,6 +482,15 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
     <div v-else-if="!hasMore && posts.length > 0" class="cm-end">
       <span></span>到底啦 · 共 {{ total }} 篇<span></span>
     </div>
+
+    <!-- 底部发布引导 CTA（填住列表结束后的版面） -->
+    <section v-if="!loading && posts.length > 0 && !hasMore" class="cm-cta">
+      <div class="cm-cta-copy">
+        <b>把你的旅行写成故事</b>
+        <span>打卡、游记、路线 —— 都值得被别人照着走一遍</span>
+      </div>
+      <button class="cm-cta-btn" @click="openPublish">✏️ 发布笔记</button>
+    </section>
 
     <!-- 发布弹窗 -->
     <Modal
@@ -504,17 +555,24 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
         :options="planOptions"
       />
     </Modal>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* ===== 页面容器：浅灰蓝底衬托白卡 ===== */
+/* ===== 页面容器：全幅着色底铺满内容区，消除四周大片白 ===== */
 .community-page {
-  max-width: 1100px;
+  /* 负 margin 抵消 .app-content 的 padding，让底色铺满整个内容区 */
+  margin: -28px -24px -56px;
+  padding: 28px 24px 48px;
+  background:
+    radial-gradient(1000px 420px at 88% 96%, rgba(22, 119, 255, 0.08), transparent 60%),
+    linear-gradient(180deg, #e3eefb 0%, #eef4fb 100%);
+  min-height: calc(100vh - 60px);
+}
+.cm-inner {
+  max-width: 1280px;
   margin: 0 auto;
-  background: #f4f7fb;
-  border-radius: 24px;
-  padding: 20px 20px 28px;
 }
 
 /* ===== Hero 渐变横幅 ===== */
@@ -615,6 +673,71 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   transform: rotate(14deg);
 }
 
+/* ===== 统计速览行：4 格数据卡 ===== */
+.cm-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.cm-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 10px rgba(31, 56, 88, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.cm-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(31, 56, 88, 0.12);
+}
+.cm-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  flex-shrink: 0;
+}
+.cm-stat-icon.is-blue {
+  background: #e6f3ff;
+}
+.cm-stat-icon.is-cyan {
+  background: #dff6fb;
+}
+.cm-stat-icon.is-violet {
+  background: #efe9ff;
+}
+.cm-stat-icon.is-orange {
+  background: #ffefe4;
+}
+.cm-stat-body b {
+  display: block;
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #1677ff, #0aa5c2);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.cm-stat-body span {
+  display: block;
+  font-size: 12.5px;
+  color: #8695aa;
+  margin-top: 2px;
+}
+.cm-stats-note {
+  margin: 0 0 20px;
+  font-size: 11.5px;
+  color: #a8b3c4;
+}
+
 /* ===== 主体两栏布局 ===== */
 .cm-layout {
   display: flex;
@@ -667,13 +790,15 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 
 /* ===== 列表流帖子卡（一条一条） ===== */
 .cm-item {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: flex-start;
   gap: 14px;
   background: #fff;
   border-radius: 14px;
-  padding: 16px 18px;
-  margin-bottom: 12px;
+  padding: 20px 22px;
+  margin-bottom: 14px;
   cursor: pointer;
   box-shadow: 0 2px 10px rgba(31, 56, 88, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -681,6 +806,26 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 .cm-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 26px rgba(31, 56, 88, 0.12);
+}
+/* 类型色竖条：左侧 4px，按帖子类型着色 */
+.cm-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, #1677ff, #0aa5c2);
+}
+.cm-item.t-journal::before {
+  background: linear-gradient(180deg, #ff8fab, #ff6f91);
+}
+.cm-item.t-route::before {
+  background: linear-gradient(180deg, #1677ff, #0aa5c2);
+}
+.cm-item.t-manual::before {
+  background: linear-gradient(180deg, #34c38f, #0f9d58);
 }
 /* 作者头像（渐变圆） */
 .ci-avatar {
@@ -811,12 +956,33 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 }
 /* 右侧封面缩略图 */
 .ci-cover {
-  width: 172px;
-  height: 116px;
+  width: 220px;
+  height: 140px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 12px;
   flex-shrink: 0;
   background: #eef2f7;
+}
+/* 无封面占位块：类型渐变底 + emoji 补位，避免卡片右侧空荡 */
+.ci-thumb-ph {
+  width: 220px;
+  height: 140px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  align-self: center;
+}
+.ci-thumb-ph.is-journal {
+  background: linear-gradient(135deg, #ffe3ec, #ffd0dd);
+}
+.ci-thumb-ph.is-route {
+  background: linear-gradient(135deg, #e2f0ff, #cfe8ff);
+}
+.ci-thumb-ph.is-manual {
+  background: linear-gradient(135deg, #dcf5e9, #c8eedd);
 }
 
 /* ===== 右侧信息栏 ===== */
@@ -831,6 +997,23 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   font-size: 14.5px;
   font-weight: 700;
   color: #1f2a37;
+}
+/* 玩法卡：深色渐变，与白色数据卡形成对比，消除右栏苍白感 */
+.rail-play {
+  background: linear-gradient(165deg, #0e1f2b 0%, #143d57 100%);
+  box-shadow: 0 10px 26px rgba(10, 23, 32, 0.35);
+}
+.rail-play h4 {
+  color: #fff;
+}
+.rail-play .rail-steps b {
+  color: #fff;
+}
+.rail-play .rail-steps span {
+  color: rgba(255, 255, 255, 0.55);
+}
+.rail-play .rail-steps i {
+  background: rgba(255, 255, 255, 0.16);
 }
 /* 玩法步骤 */
 .rail-steps {
@@ -910,28 +1093,60 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   color: #b3bdc9;
   line-height: 1.6;
 }
-/* 社区数据 */
-.rail-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+/* 活跃旅行者 */
+.rail-users {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.rail-stats b {
-  display: block;
-  font-size: 17px;
+.rail-users li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ru-rank {
+  width: 18px;
+  font-size: 12px;
   font-weight: 800;
-  color: #1f2a37;
+  font-style: normal;
+  color: #b3bdc9;
+  text-align: center;
+  flex-shrink: 0;
 }
-.rail-stats span {
+.ru-rank.is-top {
+  color: #ff9a44;
+}
+.ru-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffb199 0%, #ff6f91 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ru-info {
+  min-width: 0;
+}
+.ru-info b {
   display: block;
-  font-size: 11.5px;
-  color: #98a3b3;
-  margin-top: 2px;
+  font-size: 13.5px;
+  color: #1f2a37;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.rail-note {
-  margin: 12px 0 0;
-  font-size: 11.5px;
-  color: #c0c9d4;
+.ru-info span {
+  display: block;
+  font-size: 12px;
+  color: #98a3b3;
 }
 
 /* ===== 空状态 ===== */
@@ -985,6 +1200,52 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   background: linear-gradient(90deg, transparent, #dde5ef, transparent);
 }
 
+/* ===== 底部 CTA 渐变横条：收住版面，引导发布 ===== */
+.cm-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding: 22px 26px;
+  border-radius: 18px;
+  background: linear-gradient(120deg, #1677ff 0%, #0aa5c2 100%);
+  box-shadow: 0 12px 30px rgba(22, 119, 255, 0.26);
+}
+.cm-cta-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cm-cta-copy b {
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+.cm-cta-copy span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.cm-cta-btn {
+  border: none;
+  background: #fff;
+  color: #1677ff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 11px 26px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.cm-cta-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
 /* ===== 发布弹窗内复用样式 ===== */
 .pub-label {
   font-weight: 600;
@@ -1016,18 +1277,28 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 /* ===== 窄屏适配 ===== */
 @media (max-width: 640px) {
   .community-page {
-    padding: 12px 12px 20px;
-    border-radius: 16px;
+    margin: -16px -12px -40px;
+    padding: 16px 12px 40px;
   }
   .cm-hero {
     padding: 20px;
   }
+  .cm-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
   .cm-hero-emoji {
     display: none;
   }
-  .ci-cover {
+  .ci-cover,
+  .ci-thumb-ph {
     width: 116px;
     height: 84px;
+  }
+  .ci-thumb-ph {
+    font-size: 26px;
+  }
+  .cm-cta {
+    padding: 18px 20px;
   }
   .ci-summary {
     -webkit-line-clamp: 1;
