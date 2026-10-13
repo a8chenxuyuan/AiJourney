@@ -201,6 +201,20 @@ async def enqueue_crawler_task(cities: list[str] | None, max_pages: int | None) 
     return job.job_id
 
 
+async def enqueue_journal_task(plan_id: str, journal_id: str, user_id: int) -> None:
+    """
+    投递游记生成任务到队列。
+
+    Args:
+        plan_id: 行程计划 ID。
+        journal_id: 游记记录 ID（任务回写目标）。
+        user_id: 触发生成的用户 ID。
+    """
+    pool = await _get_pool()
+    await pool.enqueue_job("run_journal_task", plan_id, journal_id, user_id)
+    logger.info(f"[Queue] 游记生成任务已入队 plan_id={plan_id} journal_id={journal_id}")
+
+
 async def get_job_status(job_id: str) -> dict[str, Any]:
     """
     查询 arq 任务状态与结果。

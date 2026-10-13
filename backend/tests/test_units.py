@@ -264,3 +264,184 @@ def test_score_recommendation_cities_weights():
 
     cities = [city for city, _ in scored]
     assert cities.index("杭州") < cities.index("苏州") < cities.index("南京") < cities.index("北京")
+
+
+# ==================== 行中伴侣：打卡 / 游记降级 / 档案统计 ====================
+
+
+def test_extract_json_tolerates_fences():
+    """游记 JSON 提取：容忍 ```json 围栏与前后杂文本，纯文本返回 None。"""
+    from app.tasks import _extract_json
+
+    fenced = (
+        '```json\n{"title": "杭城三日", '
+        '"sections": [{"day_index": 1, "title": "a", "text": "b"}]}\n```'
+    )
+    parsed = _extract_json(fenced)
+    assert parsed is not None
+    assert parsed["title"] == "杭城三日"
+    assert _extract_json("抱歉，我无法生成游记") is None
+
+
+@pytest.mark.asyncio
+async def test_journal_fallback_stitches_days_and_checkins():
+    """游记降级拼接：逐天生成分节，打卡感想并入正文，照片按天归组。"""
+    from datetime import datetime
+
+    from app.models.db_models import TripCheckin
+    from app.tasks import _build_journal_fallback
+
+    plan_data = {
+        "city": "杭州",
+        "travel_days": 2,
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "day_plans": [
+            {
+                "day_index": 1,
+                "date": "2026-10-01",
+                "city": "杭州",
+                "attractions": [{"name": "西湖"}],
+                "meals": [],
+            },
+            {
+                "day_index": 2,
+                "date": "2026-10-02",
+                "city": "杭州",
+                "attractions": [{"name": "灵隐寺"}],
+                "meals": [],
+            },
+        ],
+    }
+    checkins = [
+        TripCheckin(
+            id="CK_1",
+            plan_id="P",
+            user_id=1,
+            day_index=1,
+            spot_type="attraction",
+            spot_name="西湖",
+            longitude=120.15,
+            latitude=30.25,
+            checkin_at=datetime(2026, 10, 1, 10, 0),
+            photo_urls=["p1.jpg"],
+            note="湖水很美",
+        )
+    ]
+
+    result = _build_journal_fallback(plan_data, checkins)
+    assert result["title"] == "杭州 之旅"
+    day1 = next(s for s in result["sections"] if s["day_index"] == 1)
+    assert "西湖" in day1["text"]
+    assert "湖水很美" in day1["text"]
+    assert day1["photos"] == ["p1.jpg"]
+    day2 = next(s for s in result["sections"] if s["day_index"] == 2)
+    assert "灵隐寺" in day2["text"] and day2["photos"] == []
+
+
+@pytest.mark.asyncio
+async def test_checkin_create_and_list_grouped_by_day():
+    """打卡：创建后按天分组返回；checkin_out 字段完整。"""
+    from app.api.routes.trip.archive import get_archive  # noqa: F401  确保路由模块可导入
+    from app.api.routes.trip.checkins import create_checkin, list_checkins
+    from app.models.schemas import CheckinCreateRequest
+
+    engine, session = await _make_session()
+    try:
+        await _seed(session)
+        plan = await session.get(TripPlanDB, "PLAN_TEST_1")
+        user = await session.get(User, 1)
+
+        created = await create_checkin(
+            CheckinCreateRequest(
+                day_index=1,
+                spot_name="西湖",
+                longitude=120.15,
+                latitude=30.25,
+                note="湖水很美",
+                photo_urls=["p1.jpg"],
+            ),
+            plan,
+            user,
+            session,
+        )
+        assert created.success and created.data["spot_name"] == "西湖"
+        assert created.data["id"].startswith("CK_")
+
+        listed = await list_checkins(plan, session)
+        assert listed.data["total"] == 1
+        # 直测路由函数时 by_day key 保持 int（经 HTTP JSON 序列化后为字符串，前端兼容两种）
+        assert listed.data["by_day"][1][0]["note"] == "湖水很美"
+    finally:
+        await session.close()
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_archive_stats_aggregates_cities_and_checkins():
+    """档案统计：单城+多城城市去重、打卡总数、每行程打卡数。"""
+    from datetime import datetime
+
+    from app.api.routes.trip.archive import get_archive
+    from app.models.db_models import TripCheckin
+
+    engine, session = await _make_session()
+    try:
+        await _seed(session)
+        user = await session.get(User, 1)
+        # 补一条多城联游行程
+        session.add(
+            TripPlanDB(
+                id="PLAN_TEST_2",
+                user_id=1,
+                city="杭州",
+                start_date="2026-11-01",
+                end_date="2026-11-02",
+                travel_days=2,
+                request_data={},
+                status="completed",
+                cities_json=[{"city": "杭州", "days": 1}, {"city": "苏州", "days": 1}],
+            )
+        )
+        session.add_all(
+            [
+                TripCheckin(
+                    id="CK_1",
+                    plan_id="PLAN_TEST_1",
+                    user_id=1,
+                    day_index=1,
+                    spot_type="attraction",
+                    spot_name="西湖",
+                    longitude=120.15,
+                    latitude=30.25,
+                    checkin_at=datetime(2026, 10, 1, 10, 0),
+                    photo_urls=["p1.jpg"],
+                ),
+                TripCheckin(
+                    id="CK_2",
+                    plan_id="PLAN_TEST_2",
+                    user_id=1,
+                    day_index=1,
+                    spot_type="meal",
+                    spot_name="楼外楼",
+                    longitude=120.15,
+                    latitude=30.25,
+                    checkin_at=datetime(2026, 11, 1, 12, 0),
+                ),
+            ]
+        )
+        await session.commit()
+
+        result = await get_archive(user, session)
+        stats = result.data["stats"]
+        assert stats["plan_count"] == 2
+        # 单城(杭州) + 多城展开(杭州、苏州) → 去重后 {杭州, 苏州}
+        assert stats["city_count"] == 2
+        assert stats["checkin_total"] == 2
+        assert stats["photo_total"] == 1
+        checkin_by_plan = {p["plan_id"]: p["checkin_count"] for p in result.data["plans"]}
+        assert checkin_by_plan["PLAN_TEST_1"] == 1
+        assert checkin_by_plan["PLAN_TEST_2"] == 1
+    finally:
+        await session.close()
+        await engine.dispose()

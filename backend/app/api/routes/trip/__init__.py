@@ -24,19 +24,27 @@ include 顺序即路由注册顺序：单段固定路径（/favorites、/my/list
 from fastapi import APIRouter
 
 from app.api.routes.trip import (
+    archive,
     chat,
+    checkins,
     favorites,
     feedback,
+    journal,
     notifications,
     plan_detail,
     plans,
     recommendations,
     revisions,
+    today,
 )
 from app.api.routes.trip.plans import _calculate_days
 from app.api.routes.trip.recommendations import _score_recommendation_cities
 
 router = APIRouter()
+router.include_router(archive.router)
+router.include_router(checkins.router)
+router.include_router(today.router)
+router.include_router(journal.router)
 router.include_router(plans.router)
 router.include_router(favorites.router)
 router.include_router(notifications.router)

@@ -596,3 +596,147 @@ def test_25_collaboration_flow(client, user_headers, make_user, plan_ctx):
     #    无权限统一返回 404（不区分"不存在"与"无权访问"，避免泄露行程存在性）
     resp = client.get(f"/api/trip/{plan_id}", headers=b_headers)
     assert resp.status_code == 404, f"移除后协作者仍可访问行程，实际: {resp.status_code}"
+
+
+# ==================== 行中伴侣与旅行档案（26-30） ====================
+
+
+def test_26_checkin_create_list_delete(client, user_headers, plan_ctx):
+    """
+    用例26：打卡链路。
+
+    覆盖：创建两条打卡（第 1 天两个地点）→ 列表按天分组 → 删除其中一条 →
+    列表总数与分组更新。
+    """
+    plan_id = plan_ctx["plan_id"]
+
+    # 1. 创建两条打卡
+    for spot in ["西湖", "灵隐寺"]:
+        resp = client.post(
+            f"/api/trip/{plan_id}/checkins",
+            headers=user_headers,
+            json={
+                "day_index": 1,
+                "spot_type": "attraction",
+                "spot_name": spot,
+                "longitude": 120.15,
+                "latitude": 30.25,
+                "note": f"打卡{spot}",
+            },
+        )
+        assert resp.status_code == 200 and resp.json()["success"] is True, f"打卡失败: {resp.text}"
+        assert resp.json()["data"]["id"].startswith("CK_")
+
+    # 2. 列表按天分组
+    resp = client.get(f"/api/trip/{plan_id}/checkins", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True
+    data = resp.json()["data"]
+    assert data["total"] == 2
+    assert "1" in data["by_day"] or 1 in data["by_day"]  # JSON 序列化后 key 为字符串
+    day1 = data["by_day"].get("1") or data["by_day"].get(1) or []
+    assert {c["spot_name"] for c in day1} == {"西湖", "灵隐寺"}
+
+    # 3. 删除一条 → 列表更新
+    checkin_id = data["checkins"][0]["id"]
+    resp = client.delete(f"/api/trip/checkins/{checkin_id}", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"删除打卡失败: {resp.text}"
+    resp = client.get(f"/api/trip/{plan_id}/checkins", headers=user_headers)
+    assert resp.json()["data"]["total"] == 1
+
+
+def test_27_today_view_pretrip(client, user_headers, plan_ctx):
+    """
+    用例27：当日视图（行前分支）。
+
+    plan_ctx 的行程明天出发 → in_trip=False 且 days_until_start >= 1，
+    同时透出行程城市与起止日期。
+    """
+    plan_id = plan_ctx["plan_id"]
+    resp = client.get(f"/api/trip/{plan_id}/today", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"当日视图失败: {resp.text}"
+    data = resp.json()["data"]
+    assert data["in_trip"] is False
+    assert data["today_plan"] is None
+    assert (data.get("days_until_start") or 0) >= 1
+    assert data["plan_city"]
+
+
+def test_28_nearby_pois(client, user_headers, plan_ctx):
+    """用例28：附近推荐（真实高德 place/around），返回按距离升序的 POI 列表。"""
+    plan_id = plan_ctx["plan_id"]
+    resp = client.get(
+        f"/api/trip/{plan_id}/nearby",
+        headers=user_headers,
+        params={"longitude": 120.149594, "latitude": 30.246398, "type": "restaurant"},
+    )
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"附近搜索失败: {resp.text}"
+    pois = resp.json()["data"]["pois"]
+    assert isinstance(pois, list)
+    for poi in pois:
+        assert "name" in poi and "location" in poi
+
+
+def test_29_journal_generate_edit(client, user_headers, plan_ctx):
+    """
+    用例29：游记生成链路。
+
+    覆盖：触发生成（幂等：重复触发返回现有记录）→ 轮询至 done →
+    编辑标题与分节 → 校验回读 → PATCH 非作者被 403（略，协作者链路单独覆盖成本高）。
+    """
+    plan_id = plan_ctx["plan_id"]
+
+    # 1. 触发生成
+    resp = client.post(f"/api/trip/{plan_id}/journal/generate", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"触发生成失败: {resp.text}"
+    first = resp.json()["data"]
+    assert first["status"] in ("generating", "done")
+
+    # 2. 重复触发幂等（同一记录，不重复入队）
+    resp = client.post(f"/api/trip/{plan_id}/journal/generate", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["data"]["id"] == first["id"]
+
+    # 3. 轮询至终态（LLM 生成或降级拼接，均应 done）
+    JOURNAL_TIMEOUT_SECONDS = 300
+
+    def _journal_done():
+        r = client.get(f"/api/trip/{plan_id}/journal", headers=user_headers)
+        body = r.json().get("data") or {}
+        return body if body.get("status") in ("done", "failed") else None
+
+    journal = _wait_until(_journal_done, JOURNAL_TIMEOUT_SECONDS)
+    assert journal is not None, f"游记未在 {JOURNAL_TIMEOUT_SECONDS}s 内生成完成"
+    assert journal["status"] == "done", f"游记生成失败: {journal}"
+    assert journal["sections"], "游记分节不应为空"
+
+    # 4. 编辑标题与第一节正文
+    sections = journal["sections"]
+    sections[0]["text"] = "（编辑后）这次旅行令人难忘。"
+    resp = client.patch(
+        f"/api/trip/{plan_id}/journal",
+        headers=user_headers,
+        json={"title": "我的旅行手记", "sections": sections},
+    )
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"编辑游记失败: {resp.text}"
+    updated = resp.json()["data"]
+    assert updated["title"] == "我的旅行手记"
+    assert updated["sections"][0]["text"] == "（编辑后）这次旅行令人难忘。"
+
+
+def test_30_archive_summary(client, user_headers, plan_ctx):
+    """
+    用例30：旅行档案。
+
+    覆盖：统计条（行程数/城市数/打卡数）+ 行程卡片流（含本会话行程）。
+    前置依赖：用例 26 已为本会话行程创建过打卡。
+    """
+    resp = client.get("/api/trip/archive", headers=user_headers)
+    assert resp.status_code == 200 and resp.json()["success"] is True, f"档案查询失败: {resp.text}"
+    data = resp.json()["data"]
+    stats = data["stats"]
+    assert stats["plan_count"] >= 1
+    assert stats["city_count"] >= 1
+    assert stats["checkin_total"] >= 1
+    plan_ids = {p["plan_id"] for p in data["plans"]}
+    assert plan_ctx["plan_id"] in plan_ids
+    plan_item = next(p for p in data["plans"] if p["plan_id"] == plan_ctx["plan_id"])
+    assert plan_item["checkin_count"] >= 1

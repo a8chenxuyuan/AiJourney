@@ -15,6 +15,8 @@ backend/app/tasks.py
 """
 
 import asyncio
+import json
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -24,9 +26,10 @@ from sqlalchemy import select
 from app.agents.graph import run_planning_graph, run_recalculate_graph, run_revision_graph
 from app.agents.tools import get_weather
 from app.db.session import AsyncSessionLocal
-from app.models.db_models import PlanNotification, TripPlanDB
+from app.models.db_models import PlanNotification, TripCheckin, TripJournal, TripPlanDB
 from app.models.schemas import StructuredFeedback, TripPlan, TripRequest
 from app.services.crawler_service import CrawlerService
+from app.services.llm_service import get_llm
 from app.services.memory_service import MemoryService
 from app.utils.queue import enqueue_revision_task
 
@@ -436,3 +439,211 @@ async def run_weather_check_task(ctx: dict) -> dict[str, int]:
 
     logger.info(f"[Weather Check] 检查完成 checked={checked} notified={notified}")
     return {"checked": checked, "notified": notified}
+
+
+# ==================== 游记生成任务 ====================
+
+
+def _extract_json(text: str) -> dict | None:
+    """
+    从 LLM 输出中提取 JSON 对象（容忍 ```json 围栏与前后杂文本）。
+
+    Args:
+        text: LLM 原始输出。
+
+    Returns:
+        Optional[dict]: 解析成功返回 dict，失败返回 None。
+    """
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        parsed = json.loads(match.group(0))
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _build_journal_fallback(plan_data: dict, checkins: list[TripCheckin]) -> dict:
+    """
+    降级生成：LLM 失败时用行程每日描述 + 打卡感想拼接分节游记。
+
+    Args:
+        plan_data: 行程 JSON。
+        checkins: 打卡记录列表。
+
+    Returns:
+        dict: {title, sections}。
+    """
+    city = plan_data.get("city", "旅行")
+    day_plans = plan_data.get("day_plans", []) or []
+    photos_by_day: dict[int, list[str]] = {}
+    for c in checkins:
+        if c.day_index and c.photo_urls:
+            photos_by_day.setdefault(c.day_index, []).extend(c.photo_urls[:3])
+
+    sections = [
+        {
+            "day_index": None,
+            "title": "序",
+            "text": f"这次 {city} 之旅共 {plan_data.get('travel_days', len(day_plans))} 天，"
+            "把路上的打卡与感想整理成册，留作纪念。",
+            "photos": [],
+        }
+    ]
+    for day in day_plans:
+        day_index = day.get("day_index")
+        names = [a.get("name", "") for a in day.get("attractions", []) if a.get("name")]
+        notes = [c.note for c in checkins if c.day_index == day_index and c.note]
+        text_parts = [f"第 {day_index} 天，{'、'.join(names) if names else '自由活动'}。"]
+        if notes:
+            text_parts.append("当天感想：" + "；".join(notes))
+        sections.append(
+            {
+                "day_index": day_index,
+                "title": f"第 {day_index} 天 · {day.get('city') or city}",
+                "text": "".join(text_parts),
+                "photos": photos_by_day.get(day_index, []),
+            }
+        )
+
+    return {"title": f"{city} 之旅", "sections": sections}
+
+
+def _summarize_plan_for_prompt(plan_data: dict) -> str:
+    """把行程 JSON 压缩为 LLM 可读的逐天文本摘要（只保留名称/日期/描述，控制 token）。"""
+    lines = [
+        f"目的地：{plan_data.get('city')}",
+        f"日期：{plan_data.get('start_date')} 至 {plan_data.get('end_date')}"
+        f"（{plan_data.get('travel_days')} 天）",
+    ]
+    for day in plan_data.get("day_plans", []) or []:
+        spots = "、".join(a.get("name", "") for a in day.get("attractions", []) if a.get("name"))
+        meals = "、".join(m.get("name") or m.get("type", "") for m in day.get("meals", []))
+        lines.append(
+            f"第{day.get('day_index')}天({day.get('date')})：景点[{spots}] 餐饮[{meals}]"
+            f" 住宿[{(day.get('hotel') or {}).get('name', '')}]"
+        )
+    return "\n".join(lines)
+
+
+def _summarize_checkins_for_prompt(checkins: list[TripCheckin]) -> str:
+    """把打卡记录压缩为逐条文本（含感想），无打卡时返回提示。"""
+    if not checkins:
+        return "（用户没有留下打卡记录，请仅根据行程安排创作）"
+    lines = []
+    for c in checkins:
+        note = f"，感想：{c.note}" if c.note else ""
+        lines.append(f"第{c.day_index}天打卡「{c.spot_name}」{note}")
+    return "\n".join(lines)
+
+
+async def run_journal_task(ctx: dict, plan_id: str, journal_id: str, user_id: int) -> None:
+    """
+    游记生成任务：行程 JSON + 打卡记录 → LLM 分节图文游记。
+
+    成功回写 title/content/status=done；LLM 解析失败降级为"逐天摘要拼接"
+    （仍标记 done，保证用户能拿到结果）；任务整体异常时标记 failed 允许重试。
+
+    Args:
+        ctx: arq Worker 上下文（未使用，保持签名兼容）。
+        plan_id: 行程计划 ID。
+        journal_id: 游记记录 ID（回写目标）。
+        user_id: 触发生成的用户 ID。
+    """
+    try:
+        async with AsyncSessionLocal() as session:
+            journal = await session.get(TripJournal, journal_id)
+            if not journal:
+                logger.warning(f"[Journal Task] 游记 {journal_id} 不存在，跳过")
+                return
+
+            plan = await session.get(TripPlanDB, plan_id)
+            if not plan:
+                await _mark_journal(session, journal, "failed", None)
+                return
+
+            # 取当前生效版本的行程 JSON
+            memory_service = MemoryService()
+            current_revision = await memory_service.get_current_revision(session, plan_id)
+            plan_data = (
+                current_revision.trip_plan_json if current_revision else plan.plan_data
+            ) or {}
+            if not plan_data:
+                await _mark_journal(session, journal, "failed", None)
+                return
+
+            checkin_result = await session.execute(
+                select(TripCheckin)
+                .where(TripCheckin.plan_id == plan_id)
+                .order_by(TripCheckin.day_index, TripCheckin.checkin_at)
+            )
+            checkins = list(checkin_result.scalars().all())
+
+            # LLM 生成（失败降级拼接）
+            try:
+                llm = get_llm(temperature=0.7)
+                prompt = (
+                    "你是一位游记作者。请根据下面的行程安排与打卡记录，写一篇第一人称旅行游记。\n"
+                    "要求：\n"
+                    "1. 每个行程天写一节，融入打卡感想，每节 150-250 字，语言生动自然；\n"
+                    "2. 开头加一节序（day_index 用 null），结尾加一节尾声（day_index 用 null）；\n"
+                    "3. 严格输出 JSON，格式：\n"
+                    '{"title": "游记标题", "sections": '
+                    '[{"day_index": 1, "title": "节标题", "text": "节正文"}]}\n'
+                    "4. 只输出 JSON，不要任何其他文字。\n\n"
+                    f"【行程安排】\n{_summarize_plan_for_prompt(plan_data)}\n\n"
+                    f"【打卡记录】\n{_summarize_checkins_for_prompt(checkins)}"
+                )
+                response = await llm.ainvoke(prompt)
+                raw_text = response.content if hasattr(response, "content") else str(response)
+                parsed = _extract_json(raw_text)
+                sections = []
+                if parsed and isinstance(parsed.get("sections"), list):
+                    photos_by_day: dict[int, list[str]] = {}
+                    for c in checkins:
+                        if c.day_index and c.photo_urls:
+                            photos_by_day.setdefault(c.day_index, []).extend(c.photo_urls[:3])
+                    for s in parsed["sections"]:
+                        if not isinstance(s, dict) or not s.get("title") or not s.get("text"):
+                            continue
+                        day_index = s.get("day_index")
+                        is_day = isinstance(day_index, int)
+                        sections.append(
+                            {
+                                "day_index": day_index if is_day else None,
+                                "title": str(s["title"])[:120],
+                                "text": str(s["text"]),
+                                "photos": photos_by_day.get(day_index, []) if is_day else [],
+                            }
+                        )
+                if sections:
+                    result = {
+                        "title": str(parsed.get("title", ""))[:200] if parsed else "",
+                        "sections": sections,
+                    }
+                else:
+                    result = _build_journal_fallback(plan_data, checkins)
+            except Exception as exc:
+                logger.warning(f"[Journal Task] LLM 生成失败，降级拼接: {exc}")
+                result = _build_journal_fallback(plan_data, checkins)
+
+            await _mark_journal(session, journal, "done", result)
+            logger.info(f"[Journal Task] 游记 {journal_id} 生成完成（plan={plan_id}）")
+
+    except Exception as exc:
+        logger.exception(f"[Journal Task] 游记生成任务 {journal_id} 执行失败: {exc}")
+        async with AsyncSessionLocal() as session:
+            journal = await session.get(TripJournal, journal_id)
+            if journal:
+                await _mark_journal(session, journal, "failed", None)
+
+
+async def _mark_journal(session, journal: TripJournal, status: str, result: dict | None) -> None:
+    """回写游记状态：done 时写入标题/分节/生成时间，failed 时仅置状态。"""
+    journal.status = status
+    if status == "done" and result:
+        journal.title = result.get("title", "")
+        journal.content = result.get("sections", [])
+        journal.generated_at = datetime.now()
+    await session.commit()

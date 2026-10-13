@@ -128,6 +128,65 @@ class AmapService:
 
         return results
 
+    async def search_nearby(
+        self,
+        longitude: float,
+        latitude: float,
+        keywords: str = "",
+        poi_type: str | None = None,
+        radius: int = 1000,
+        page_size: int = 10,
+    ) -> list[dict[str, Any]]:
+        """
+        周边搜索 POI（高德 place/around 接口）。
+
+        Args:
+            longitude: 中心点经度。
+            latitude: 中心点纬度。
+            keywords: 搜索关键词，可为空（仅按类型搜）。
+            poi_type: POI 类型编码，如餐饮 050000、公共设施 070000。
+            radius: 搜索半径（米），默认 1000。
+            page_size: 返回结果数量，最大 25。
+
+        Returns:
+            List[Dict[str, Any]]: POI 列表（含名称、地址、坐标、距离、评分）。
+        """
+        params = {
+            "location": f"{longitude},{latitude}",
+            "radius": min(radius, 50000),
+            "offset": min(page_size, 25),
+            "page": 1,
+            "sortrule": "distance",
+        }
+        if keywords:
+            params["keywords"] = keywords
+        if poi_type:
+            params["types"] = poi_type
+
+        data = await self._get("/place/around", params)
+        pois = data.get("pois", []) or []
+
+        results = []
+        for poi in pois:
+            location_str = poi.get("location", ",")
+            longitude_parsed, latitude_parsed = self._parse_location(location_str)
+            photos = self._parse_photos(poi.get("photos", []))
+            results.append(
+                {
+                    "id": poi.get("id"),
+                    "name": poi.get("name", "").strip(),
+                    "address": poi.get("address", "").strip() or None,
+                    "location": {"longitude": longitude_parsed, "latitude": latitude_parsed},
+                    "type": poi.get("type", ""),
+                    "distance": int(poi.get("distance", 0) or 0),
+                    "tel": self._parse_tel(poi.get("tel")),
+                    "rating": self._parse_rating(poi.get("biz_ext", {}).get("rating")),
+                    "photos": photos,
+                    "image_url": photos[0] if photos else None,
+                }
+            )
+        return results
+
     async def get_weather(self, city: str, forecast: bool = True) -> dict[str, Any]:
         """
         查询指定城市的天气信息。

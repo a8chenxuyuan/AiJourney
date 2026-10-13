@@ -25,6 +25,7 @@ from app.config import settings
 from app.db.init_db import init_db
 from app.tasks import (
     run_crawler_task,
+    run_journal_task,
     run_planning_task,
     run_recalculate_task,
     run_revision_task,
@@ -82,6 +83,7 @@ class WorkerSettings:
         run_recalculate_task,
         run_crawler_task,
         run_weather_check_task,
+        run_journal_task,
     ]
     cron_jobs: ClassVar[list] = [cron(run_weather_check_task, hour=8, minute=0)]
     redis_settings = _redis_settings

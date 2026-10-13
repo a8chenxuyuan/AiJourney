@@ -418,3 +418,66 @@ class PlanInvite(Base):
     )
     revoked = Column(Boolean, nullable=False, default=False, comment="是否已被所有者撤销")
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
+
+
+class TripCheckin(Base):
+    """
+    行程打卡表。
+
+    记录用户在行程执行期间的地点打卡（含坐标、照片、感想），
+    是足迹地图与游记生成的数据源。
+    与 PlanNotification 等新增表一样由 init_db 的 create_all 自动建表。
+    """
+
+    __tablename__ = "trip_checkins"
+
+    id = Column(String(64), primary_key=True, index=True, comment="打卡 ID（CK_{uuid}）")
+    plan_id = Column(
+        String(64), ForeignKey("trip_plans.id"), nullable=False, index=True, comment="行程计划 ID"
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="打卡人 ID"
+    )
+    day_index = Column(Integer, nullable=False, comment="行程第几天，从 1 开始")
+    spot_type = Column(
+        String(32), nullable=False, comment="地点类型：attraction/meal/hotel"
+    )
+    spot_name = Column(String(255), nullable=False, comment="地点名称")
+    longitude = Column(Float, nullable=False, default=0.0, comment="经度（高德坐标）")
+    latitude = Column(Float, nullable=False, default=0.0, comment="纬度（高德坐标）")
+    checkin_at = Column(DateTime, default=func.now(), comment="打卡时间")
+    photo_urls = Column(JSON, default=list, comment="照片 URL 列表")
+    note = Column(String(500), nullable=True, comment="一句话感想")
+    created_at = Column(DateTime, default=func.now(), comment="创建时间")
+
+
+class TripJournal(Base):
+    """
+    行程游记表。
+
+    行程结束后由 LLM 基于"行程 JSON + 打卡记录"生成的分节图文游记。
+    plan_id 唯一约束保证一个行程只生成一篇游记（防重复提交生成任务）。
+    status 流转：generating → done / failed。
+    is_public 默认 False，第二阶段内容中心回流时开启。
+    """
+
+    __tablename__ = "trip_journals"
+    __table_args__ = (UniqueConstraint("plan_id", name="uq_trip_journal_plan"),)
+
+    id = Column(String(64), primary_key=True, index=True, comment="游记 ID（JN_{uuid}）")
+    plan_id = Column(
+        String(64), ForeignKey("trip_plans.id"), nullable=False, comment="行程计划 ID（唯一）"
+    )
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="作者 ID")
+    title = Column(String(255), nullable=False, default="", comment="游记标题")
+    content = Column(JSON, nullable=True, comment="分节图文结构 [{day_index,title,text,photos}]")
+    status = Column(
+        String(20), nullable=False, default="generating", comment="状态：generating/done/failed"
+    )
+    is_public = Column(Boolean, nullable=False, default=False, comment="是否公开（第二阶段回流用）")
+    public_token = Column(
+        String(64), unique=True, index=True, nullable=True, comment="公开访问令牌"
+    )
+    generated_at = Column(DateTime, nullable=True, comment="生成完成时间")
+    created_at = Column(DateTime, default=func.now(), comment="创建时间")
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), comment="更新时间")

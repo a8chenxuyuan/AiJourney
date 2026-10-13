@@ -14,6 +14,8 @@ from app.models.db_models import (
     PlanLogDB,
     PlanNotification,
     PlanRevision,
+    TripCheckin,
+    TripJournal,
     TripPlanDB,
     User,
 )
@@ -110,6 +112,8 @@ async def delete_plan(
     await session.execute(delete(PlanInvite).where(PlanInvite.plan_id == plan_id))
     await session.execute(delete(PlanLogDB).where(PlanLogDB.plan_id == plan_id))
     await session.execute(delete(PlanNotification).where(PlanNotification.plan_id == plan_id))
+    await session.execute(delete(TripCheckin).where(TripCheckin.plan_id == plan_id))
+    await session.execute(delete(TripJournal).where(TripJournal.plan_id == plan_id))
     await session.delete(plan)
     await session.commit()
     logger.info(f"[行程] 行程 {plan_id} 已被所有者 {current_user.id} 删除")

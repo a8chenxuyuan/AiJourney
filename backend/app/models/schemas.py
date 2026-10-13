@@ -669,3 +669,78 @@ class CollaboratorJoinOut(BaseModel):
     plan_id: str = Field(..., description="加入的行程计划 ID")
     city: str | None = Field(None, description="行程目的地城市")
     role: str = Field(default="editor", description="加入后的角色：owner（已是所有者）/ editor")
+
+
+# ==================== 行中伴侣：打卡 / 当日视图 / 游记 ====================
+
+
+class CheckinCreateRequest(BaseModel):
+    """
+    创建打卡请求。
+
+    longitude/latitude 来自浏览器定位；定位失败时前端降级为
+    行程内地点坐标（对应 spot_type/spot_name）。
+    """
+
+    day_index: int = Field(..., ge=1, description="行程第几天，从 1 开始")
+    spot_type: str = Field(
+        default="attraction", description="地点类型：attraction/meal/hotel"
+    )
+    spot_name: str = Field(..., min_length=1, max_length=255, description="地点名称")
+    longitude: float = Field(default=0.0, description="经度（高德坐标）")
+    latitude: float = Field(default=0.0, description="纬度（高德坐标）")
+    note: str | None = Field(default=None, max_length=500, description="一句话感想")
+    photo_urls: list[str] = Field(default_factory=list, description="照片 URL 列表")
+    checkin_at: datetime | None = Field(
+        default=None, description="打卡时间，不传默认服务器当前时间"
+    )
+
+
+class CheckinOut(BaseModel):
+    """单条打卡记录响应。"""
+
+    id: str = Field(..., description="打卡 ID")
+    plan_id: str = Field(..., description="行程计划 ID")
+    day_index: int = Field(..., description="行程第几天")
+    spot_type: str = Field(..., description="地点类型")
+    spot_name: str = Field(..., description="地点名称")
+    longitude: float = Field(..., description="经度")
+    latitude: float = Field(..., description="纬度")
+    checkin_at: datetime | None = Field(None, description="打卡时间")
+    photo_urls: list[str] = Field(default_factory=list, description="照片 URL 列表")
+    note: str | None = Field(None, description="一句话感想")
+
+
+class JournalSection(BaseModel):
+    """
+    游记分节结构（content JSON 的元素）。
+
+    LLM 生成后用户可编辑；photos 为该节配图 URL（打卡照片或行程景点图）。
+    """
+
+    day_index: int | None = Field(None, description="对应行程第几天，序章/尾声可为 None")
+    title: str = Field(..., description="节标题")
+    text: str = Field(..., description="节正文")
+    photos: list[str] = Field(
+        default_factory=list, description="节配图（当日打卡照片），编辑时原样回传"
+    )
+
+
+class JournalUpdateRequest(BaseModel):
+    """游记编辑请求（标题与分节均可选，只更新传入字段）。"""
+
+    title: str | None = Field(None, min_length=1, max_length=255, description="游记标题")
+    sections: list[JournalSection] | None = Field(None, description="分节内容")
+
+
+class JournalOut(BaseModel):
+    """游记响应（GET 轮询 status 与 PATCH 编辑后均返回该结构）。"""
+
+    id: str = Field(..., description="游记 ID")
+    plan_id: str = Field(..., description="行程计划 ID")
+    title: str = Field(default="", description="游记标题")
+    status: str = Field(..., description="状态：generating/done/failed")
+    sections: list[JournalSection] = Field(default_factory=list, description="分节内容")
+    is_public: bool = Field(default=False, description="是否公开")
+    public_token: str | None = Field(None, description="公开访问令牌")
+    generated_at: datetime | None = Field(None, description="生成完成时间")
