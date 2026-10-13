@@ -778,6 +778,7 @@ class PostOut(BaseModel):
     title: str = Field(..., description="标题")
     summary: str = Field(default="", description="摘要")
     text: str = Field("", description="正文全文（旅行圈卡片展开用，列表免拉详情）")
+    photos: list[str] = Field(default_factory=list, description="照片 URL 列表（旅行圈九宫格用）")
     cover_url: str | None = Field(None, description="封面图 URL")
     tags: list[str] = Field(default_factory=list, description="标签")
     plan_id: str | None = Field(None, description="关联行程 ID（有值可「照着走」）")
