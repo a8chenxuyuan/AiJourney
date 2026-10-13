@@ -13,6 +13,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { Button, Card, Tag, Spin, Input, message } from 'ant-design-vue'
 // 引入游记 API 与类型
 import { generateJournal, getJournal, updateJournal, type JournalData, type JournalSection } from '@/api/companion'
+// 引入发布到社区弹窗（游记一键转发）
+import PublishCommunityModal from '@/components/PublishCommunityModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +34,9 @@ const editing = ref(false)
 const editTitle = ref('')
 const editSections = ref<JournalSection[]>([])
 const saving = ref(false)
+
+// publishVisible：发布到社区弹窗（携带当前游记一键转发）
+const publishVisible = ref(false)
 
 /**
  * fetchJournal：拉取游记（生成中自动启动轮询）
@@ -181,8 +186,16 @@ onUnmounted(stopPolling)
 
             <div style="display: flex; justify-content: center; gap: 12px; margin: 20px 0;">
               <Button type="primary" @click="startEdit">编辑游记</Button>
+              <Button @click="publishVisible = true">发布到社区</Button>
               <Button @click="router.push(`/trip/${planId}/footprints`)">查看足迹地图</Button>
             </div>
+
+            <!-- 发布到社区弹窗（游记转发） -->
+            <PublishCommunityModal
+              v-model:visible="publishVisible"
+              :journal-id="journal.id"
+              :default-title="journal.title"
+            />
           </template>
 
           <!-- 编辑模式 -->

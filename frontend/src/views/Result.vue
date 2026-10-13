@@ -75,12 +75,16 @@ import {
   type CollaboratorItem,
   type InviteInfo
 } from '@/api/collab'
+// 引入游记查询 API（分享到社区前先确认游记已生成）
+import { getJournal } from '@/api/companion'
 // 引入二维码生成库（分享链接 → 二维码图片）
 import QRCode from 'qrcode'
 // 引入每日地图组件
 import PlanMap from '@/components/PlanMap.vue'
 // 引入预算可视化组件
 import BudgetCharts from '@/components/BudgetCharts.vue'
+// 引入发布到社区弹窗（游记转发）
+import PublishCommunityModal from '@/components/PublishCommunityModal.vue'
 
 // 获取当前路由信息
 const route = useRoute()
@@ -901,6 +905,32 @@ const handleSandboxPay = async () => {
   }
 }
 
+// ==================== 分享到社区（游记转发） ====================
+
+// publishVisible：发布到社区弹窗；publishJournalId / publishTitle：转发草稿
+const publishVisible = ref(false)
+const publishJournalId = ref('')
+const publishTitle = ref('')
+
+/**
+ * openPublishCommunity：先查游记，已生成则弹发布弹窗，否则引导去游记页
+ */
+const openPublishCommunity = async () => {
+  try {
+    const res = await getJournal(planId)
+    if (res.success && res.data && res.data.status === 'done') {
+      publishJournalId.value = res.data.id
+      publishTitle.value = res.data.title
+      publishVisible.value = true
+    } else {
+      message.info('游记尚未生成完成，先到游记页生成一篇吧')
+      router.push(`/trip/${planId}/journal`)
+    }
+  } catch {
+    message.error('查询游记失败')
+  }
+}
+
 // ==================== 行程分享 ====================
 
 // shareVisible：分享弹窗是否展示
@@ -1187,6 +1217,7 @@ const manualRefresh = () => {
         <Button type="primary" @click="router.push(`/trip/${planId}/today`)">今天</Button>
         <Button type="default" @click="router.push(`/trip/${planId}/footprints`)">足迹</Button>
         <Button type="default" @click="router.push(`/trip/${planId}/journal`)">游记</Button>
+        <Button type="default" @click="openPublishCommunity">发布社区</Button>
         <Button type="default" @click="router.push('/')">返回首页</Button>
         <Button type="default" @click="handleCopySummary">复制行程</Button>
         <Button type="default" :loading="shareLoading" @click="handleShare">分享</Button>
@@ -1239,7 +1270,13 @@ const manualRefresh = () => {
       </template>
     </Modal>
 
-    <!-- 分享弹窗：展示链接 / 二维码，支持复制 / 关闭分享 -->
+    <!-- 发布到社区弹窗（游记转发） -->
+    <PublishCommunityModal
+      v-model:visible="publishVisible"
+      :journal-id="publishJournalId"
+      :default-title="publishTitle"
+    />
+
     <Modal v-model:open="shareVisible" title="分享行程" :footer="null" style="border-radius: 12px;">
       <p style="color: #666; margin-bottom: 12px;">
         任何人通过此链接可在 7 天内只读查看这份行程，无需登录。

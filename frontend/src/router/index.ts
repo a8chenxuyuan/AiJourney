@@ -21,6 +21,9 @@ import Today from '@/views/Today.vue'
 import Footprints from '@/views/Footprints.vue'
 import Journal from '@/views/Journal.vue'
 import Archive from '@/views/Archive.vue'
+// 引入旅行社区两页（广场 / 帖子详情）
+import Community from '@/views/Community.vue'
+import PostDetail from '@/views/PostDetail.vue'
 // 引入用户认证 store，用于路由守卫判断登录状态
 import { useAuthStore } from '@/stores/auth'
 
@@ -95,6 +98,20 @@ const routes: RouteRecordRaw[] = [
     name: 'Journal',
     component: Journal,
     meta: { title: '旅行游记' }
+  },
+  // /community：社区广场（最新/热门 feed + 发布）
+  {
+    path: '/community',
+    name: 'Community',
+    component: Community,
+    meta: { title: '旅行社区' }
+  },
+  // /community/:id：帖子详情（分节图文/点赞/评论/照着走）
+  {
+    path: '/community/:id',
+    name: 'PostDetail',
+    component: PostDetail,
+    meta: { title: '帖子详情' }
   },
   // /share/:token：行程只读分享页，公开访问无需登录
   {

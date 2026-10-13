@@ -623,6 +623,20 @@ const onEndDateChange = (_date: any, dateString: string) => {
       </div>
     </section>
 
+    <!-- ============ 2.4b 旅行社区入口 ============ -->
+    <section class="reveal" style="margin-top: 32px">
+      <div class="section-head">
+        <div class="section-head-left">
+          <h2>旅行社区</h2>
+          <p>看看别人的路线与游记，喜欢的可以一键「照着走」复制成自己的行程</p>
+        </div>
+        <span class="section-head-tag">🧭 可复制的路线</span>
+      </div>
+      <div style="display: flex; align-items: center;">
+        <router-link to="/community" style="font-weight: 600;">进入旅行社区 →</router-link>
+      </div>
+    </section>
+
     <!-- ============ 2.5 你可能想去（基于收藏城市的个性化入口） ============ -->
     <section v-if="favoriteCities.length > 0" class="reveal" style="margin-top: 32px">
       <div class="section-head">
