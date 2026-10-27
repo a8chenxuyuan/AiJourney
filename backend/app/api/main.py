@@ -21,24 +21,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import (
+    admin,
     agent,
     auth,
     collab,
     community,
     crawler,
+    friends,
+    guides,
+    journals,
     map,
     memory,
+    messaging,
     payment,
     poi,
+    profiles,
     rag,
+    search,
     trip,
     upload,
     user,
 )
 from app.api.routes.upload import UPLOAD_DIR
-from app.config import settings
-from app.db.init_db import init_db
-from app.utils.logger import setup_logging
+from app.core.config import settings
+from app.core.db.init_db import init_db
+from app.core.utils.logger import setup_logging
 
 
 @asynccontextmanager
@@ -95,6 +102,16 @@ app.include_router(memory.router, prefix="/api/memory", tags=["记忆"])
 app.include_router(crawler.router, prefix="/api/crawler", tags=["爬虫"])
 app.include_router(payment.router, prefix="/api/payment", tags=["支付"])
 app.include_router(community.router, prefix="/api/community", tags=["社区"])
+# 社交：好友体系 + 用户主页 + 私聊/通知（含 WS /api/chat/ws/notify）
+app.include_router(friends.router, prefix="/api/friends", tags=["好友"])
+app.include_router(profiles.router, prefix="/api/users", tags=["用户主页"])
+app.include_router(messaging.router, prefix="/api/chat", tags=["私聊与通知"])
+# 管理后台：数据看板/用户管理/内容审核/系统公告（全部需要 admin 角色）
+app.include_router(admin.router, prefix="/api/admin", tags=["管理后台"])
+# 内容中心：/api/guides 与 /api/destination（公开流量入口，部分接口免登录）
+app.include_router(guides.router, prefix="/api", tags=["内容中心"])
+app.include_router(search.router, prefix="/api", tags=["全站搜索"])
+app.include_router(journals.router, prefix="/api/journals", tags=["公开游记"])
 app.include_router(upload.router, prefix="/api/upload", tags=["上传"])
 
 # 上传图片静态服务：/uploads/IMG_xxx.jpg 直接访问 backend/uploads 下的文件

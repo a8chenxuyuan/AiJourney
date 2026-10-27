@@ -14,21 +14,21 @@
 
 /* ==================== 1. 设计令牌 ==================== */
 :root {
-  /* 品牌渐变（天空蓝 → 海洋青） */
-  --grad-primary: linear-gradient(135deg, #1677ff 0%, #00b4d8 100%);
-  --grad-primary-soft: linear-gradient(135deg, rgba(22, 119, 255, 0.08) 0%, rgba(0, 180, 216, 0.08) 100%);
+  /* 品牌渐变（森林绿 → 苔绿，编辑风） */
+  --grad-primary: linear-gradient(135deg, #2e6b5e 0%, #5aa287 100%);
+  --grad-primary-soft: linear-gradient(135deg, rgba(46, 107, 94, 0.08) 0%, rgba(90, 162, 135, 0.08) 100%);
   --grad-sunset: linear-gradient(135deg, #ff9a44 0%, #fc6076 100%);
 
   /* 主色与功能色 */
-  --brand: #1677ff;
-  --brand-cyan: #00b4d8;
-  --accent: #ff7a45;
-  --ink: #0e2239;
-  --ink-2: #44566c;
-  --ink-3: #8695aa;
+  --brand: #2e6b5e;
+  --brand-cyan: #5aa287;
+  --accent: #e2704a;
+  --ink: #22302b;
+  --ink-2: #4c5a54;
+  --ink-3: #8a978f;
 
-  /* 页面背景 */
-  --bg-page: #f3f7fc;
+  /* 页面背景（暖纸白） */
+  --bg-page: #f7f5f0;
 
   /* 玻璃拟态令牌 */
   --glass-fill: rgba(255, 255, 255, 0.66);
@@ -40,7 +40,7 @@
   --shadow-sm: 0 1px 3px rgba(14, 34, 57, 0.06);
   --shadow-md: 0 6px 20px rgba(14, 34, 57, 0.08);
   --shadow-lg: 0 16px 40px rgba(14, 34, 57, 0.14);
-  --shadow-glow: 0 8px 24px rgba(22, 119, 255, 0.28);
+  --shadow-glow: 0 8px 24px rgba(46, 107, 94, 0.28);
 
   /* 圆角体系 */
   --radius-sm: 8px;
@@ -62,11 +62,11 @@ body {
     'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: var(--ink);
   background-color: var(--bg-page);
-  /* 顶部柔光渐变底色，让玻璃效果有"能量源" */
+  /* 顶部柔光渐变底色（暖绿+陶土橙，配合暖纸白底） */
   background-image:
-    radial-gradient(900px 480px at 8% -8%, rgba(22, 119, 255, 0.09), transparent 60%),
-    radial-gradient(800px 420px at 96% 4%, rgba(0, 180, 216, 0.09), transparent 60%),
-    radial-gradient(640px 420px at 50% 110%, rgba(255, 122, 69, 0.05), transparent 60%);
+    radial-gradient(900px 480px at 8% -8%, rgba(46, 107, 94, 0.07), transparent 60%),
+    radial-gradient(800px 420px at 96% 4%, rgba(214, 158, 90, 0.09), transparent 60%),
+    radial-gradient(640px 420px at 50% 110%, rgba(46, 107, 94, 0.04), transparent 60%);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
@@ -83,11 +83,11 @@ h1, h2, h3, h4 {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(14, 34, 57, 0.18);
+  background: rgba(34, 48, 43, 0.18);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(14, 34, 57, 0.3);
+  background: rgba(34, 48, 43, 0.3);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -149,9 +149,9 @@ h1, h2, h3, h4 {
   display: flex;
   flex-direction: column;
   padding: 26px 16px 20px;
-  background: linear-gradient(180deg, #0e1f2b 0%, #0a1720 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 4px 0 24px rgba(10, 23, 32, 0.18);
+  background: #fbf9f4;
+  border-right: 1px solid #e8e2d4;
+  box-shadow: 2px 0 16px rgba(34, 48, 43, 0.04);
   z-index: 100;
 }
 /* 品牌渐变发丝线（侧栏右缘） */
@@ -176,9 +176,9 @@ h1, h2, h3, h4 {
   user-select: none;
   padding: 2px 8px 24px;
 }
-/* 侧栏内品牌名用浅色（登录页浅底复用基础类，需局部覆盖） */
+/* 侧栏内品牌名与页面同色（浅色侧栏无需覆盖） */
 .app-sidebar .app-logo-name {
-  color: #fff;
+  color: var(--ink);
 }
 .app-logo-icon {
   width: 36px;
@@ -198,23 +198,27 @@ h1, h2, h3, h4 {
   letter-spacing: 0.5px;
 }
 
-/* 侧边导航链接 */
+/* 侧边导航（浅色编辑风：独立圆角胶囊，选中淡绿填充） */
 .app-side-nav {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
+  background: transparent;
+  border-radius: 12px;
+  padding: 0;
+  overflow: visible;
 }
 .app-side-link {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 13px 16px;
-  border-radius: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.68);
+  color: #5f6d65;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -226,14 +230,62 @@ h1, h2, h3, h4 {
   flex-shrink: 0;
 }
 .app-side-link:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: #efe9dc;
+  color: var(--ink);
 }
 .app-side-link.active {
-  background: var(--grad-primary);
-  color: #fff;
+  background: #e2eee5;
+  color: #2e6b5e;
   font-weight: 600;
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(46, 107, 94, 0.14);
+}
+/* 侧边导航红点徽标（消息未读数） */
+.app-side-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* 全站搜索入口（侧栏 Logo 下方） */
+.app-side-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e3dccc;
+  transition: all 0.2s ease;
+}
+.app-side-search:focus-within {
+  border-color: rgba(46, 107, 94, 0.5);
+  box-shadow: 0 0 0 3px rgba(46, 107, 94, 0.08);
+}
+.app-side-search svg {
+  width: 15px;
+  height: 15px;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+.app-side-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  font-size: 13px;
+  color: var(--ink);
+}
+.app-side-search input::placeholder {
+  color: #a8b2aa;
 }
 
 /* 底部用户区 */
@@ -249,8 +301,8 @@ h1, h2, h3, h4 {
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: #f2eee4;
+  border: 1px solid #e6dfd0;
 }
 .app-user-avatar {
   width: 34px;
@@ -275,19 +327,19 @@ h1, h2, h3, h4 {
 .app-side-user-name {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .app-side-user-tag {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--ink-3);
 }
 .app-side-logout {
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.55);
+  color: #9aa79e;
   cursor: pointer;
   padding: 7px;
   border-radius: 9px;
@@ -301,8 +353,8 @@ h1, h2, h3, h4 {
   height: 16px;
 }
 .app-side-logout:hover {
-  color: #ff8a94;
-  background: rgba(255, 255, 255, 0.1);
+  color: #d95c5c;
+  background: #eee7da;
 }
 /* 未登录：登录 / 注册入口 */
 .app-side-login,
@@ -316,14 +368,14 @@ h1, h2, h3, h4 {
   white-space: nowrap;
 }
 .app-side-login {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid #ddd5c4;
+  background: #ffffff;
+  color: var(--ink-2);
 }
 .app-side-login:hover {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.14);
+  color: #2e6b5e;
+  border-color: rgba(46, 107, 94, 0.4);
+  background: #f4f7f2;
 }
 .app-side-register {
   border: none;
@@ -480,9 +532,18 @@ h1, h2, h3, h4 {
   gap: 12px;
   margin: 44px 0 18px;
 }
+/* Overline 小标（编辑风：小号橙字 + 加宽字距） */
+.section-overline {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: var(--accent);
+  margin: 0 0 6px;
+}
 .section-head-left h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.5px;
 }
@@ -494,83 +555,114 @@ h1, h2, h3, h4 {
 .section-head-tag {
   font-size: 12px;
   color: var(--brand);
-  background: rgba(22, 119, 255, 0.08);
-  border: 1px solid rgba(22, 119, 255, 0.18);
+  background: rgba(46, 107, 94, 0.08);
+  border: 1px solid rgba(46, 107, 94, 0.18);
   padding: 5px 14px;
   border-radius: 999px;
   font-weight: 600;
 }
+/* 区块右侧圆形箭头（编辑风跳转按钮） */
+.section-arrow {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(34, 48, 43, 0.12);
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-2);
+  font-size: 15px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.section-arrow:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
 
-/* ==================== 7. 灵感模板：图片卡（Bento 风格） ==================== */
+/* ==================== 7. 灵感模板：横排紧凑列表卡（编辑风） ==================== */
 .tpl-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
 }
 .tpl-card {
-  position: relative;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
   background: #fff;
-  border: 1px solid rgba(14, 34, 57, 0.06);
+  border: 1px solid rgba(34, 48, 43, 0.07);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 .tpl-card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(22, 119, 255, 0.4);
-  box-shadow: 0 20px 44px rgba(22, 119, 255, 0.2);
+  transform: translateY(-3px);
+  border-color: rgba(46, 107, 94, 0.35);
+  box-shadow: 0 12px 30px rgba(46, 107, 94, 0.12);
 }
-/* 封面图区域 */
+/* 左侧方形封面缩略图 */
 .tpl-cover {
   position: relative;
-  aspect-ratio: 4 / 3;
+  width: 128px;
+  height: 128px;
+  flex-shrink: 0;
+  border-radius: 12px;
   overflow: hidden;
-  background: linear-gradient(135deg, #dceaff 0%, #c9f0f5 100%);
+  background: linear-gradient(135deg, #e4ecdf 0%, #cfe3d8 100%);
 }
 .tpl-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.55s ease;
+  transition: transform 0.45s ease;
 }
 .tpl-card:hover .tpl-cover img {
-  transform: scale(1.07);
+  transform: scale(1.08);
 }
-/* 天数徽标（玻璃胶囊） */
+/* 天数徽标（缩略图角标） */
 .tpl-days {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  font-size: 12px;
+  bottom: 6px;
+  right: 6px;
+  font-size: 11px;
   font-weight: 700;
   color: #fff;
-  padding: 4px 12px;
+  padding: 2px 9px;
   border-radius: 999px;
-  background: rgba(6, 26, 54, 0.45);
-  border: 1px solid var(--glass-hairline);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: rgba(20, 33, 29, 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 /* 卡片文字区 */
 .tpl-body {
-  padding: 14px 16px 16px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
 }
 .tpl-title {
   font-size: 15px;
   font-weight: 700;
   color: var(--ink);
-  margin: 0 0 4px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tpl-desc {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--ink-3);
-  line-height: 1.65;
-  margin: 0 0 10px;
+  line-height: 1.6;
+  margin: 5px 0 8px;
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -578,16 +670,29 @@ h1, h2, h3, h4 {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--brand);
   font-weight: 700;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.tpl-card:hover .tpl-cta {
-  opacity: 1;
-  transform: translateX(0);
+/* 右侧圆形箭头（参考 RouteBuddy 路线卡） */
+.tpl-go {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(34, 48, 43, 0.1);
+  background: #faf8f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-2);
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+.tpl-card:hover .tpl-go {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
 }
 
 /* ==================== 8. Bento 特性格 ==================== */
@@ -624,7 +729,7 @@ h1, h2, h3, h4 {
   font-size: 22px;
   margin-bottom: 14px;
   background: var(--grad-primary-soft);
-  border: 1px solid rgba(22, 119, 255, 0.14);
+  border: 1px solid rgba(46, 107, 94, 0.14);
 }
 .bento-title {
   font-size: 16px;
@@ -649,7 +754,7 @@ h1, h2, h3, h4 {
   font-size: 12px;
   padding: 5px 12px;
   border-radius: 999px;
-  background: rgba(22, 119, 255, 0.07);
+  background: rgba(46, 107, 94, 0.07);
   color: var(--brand);
   font-weight: 600;
 }
@@ -764,7 +869,7 @@ h1, h2, h3, h4 {
 .ant-btn-primary:not([disabled]) {
   background: var(--grad-primary);
   border: none;
-  box-shadow: 0 4px 14px rgba(22, 119, 255, 0.3);
+  box-shadow: 0 4px 14px rgba(46, 107, 94, 0.3);
   transition: all 0.25s ease;
 }
 .ant-btn-primary:not([disabled]):hover {
@@ -789,7 +894,7 @@ h1, h2, h3, h4 {
 .ant-input-focused,
 .ant-input-affix-wrapper-focused,
 .ant-select-focused .ant-select-selector {
-  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12) !important;
+  box-shadow: 0 0 0 3px rgba(46, 107, 94, 0.12) !important;
 }
 /* 表单标签加粗微调 */
 .ant-form-item .ant-form-item-label > label {

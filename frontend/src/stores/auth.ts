@@ -20,6 +20,9 @@ export interface User {
   id?: number
   username: string
   email?: string
+  /** 账号角色：user/admin（管理后台入口按此显隐） */
+  role?: 'user' | 'admin'
+  is_banned?: boolean
 }
 
 // 用户信息在 localStorage 中的键名（随 token 一起持久化，刷新后恢复）
@@ -37,6 +40,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   // isAuthenticated：计算属性，判断当前是否已登录（token 存在且有效）
   const isAuthenticated = computed<boolean>(() => !!token.value)
+
+  // isAdmin：计算属性，当前用户是否为管理员（控制侧边栏管理后台入口）
+  const isAdmin = computed<boolean>(() => user.value?.role === 'admin')
 
   /**
    * restoreUserFromStorage：从 localStorage 恢复用户信息（解析失败时返回 null）
@@ -133,6 +139,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     user,
     isAuthenticated,
+    isAdmin,
     login,
     register,
     fetchUser,

@@ -15,7 +15,7 @@
 // 引入 Ant Design Vue 时间线、标签组件
 import { Timeline, Tag } from 'ant-design-vue'
 // 引入 AgentLog 类型
-import type { AgentLog } from '@/api/agent'
+import type { AgentLog } from '@/api/trip/agent'
 
 /**
  * AgentLogPanelProps：组件 props 类型

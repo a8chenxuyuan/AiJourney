@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from app.config import settings
+from app.core.config import settings
 from app.services.rag_service import get_rag_service
 
 

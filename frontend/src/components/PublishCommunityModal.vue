@@ -68,7 +68,7 @@ const submit = async () => {
       message.success('已发布到旅行笔记')
       close()
       emit('success')
-      router.push('/notes')
+      router.push('/circle?tab=note')
     }
   } catch {
     // 请求层已统一提示错误

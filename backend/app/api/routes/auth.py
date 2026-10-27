@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.db.session import get_db
+from app.core.db.session import get_db
 from app.models.db_models import User
 from app.models.schemas import StandardResponse, UserCreate, UserLogin
 from app.services.auth_service import AuthService
@@ -83,6 +83,10 @@ async def login(user_login: UserLogin, session: AsyncSession = Depends(get_db)):
     user = await AuthService.authenticate_user(session, user_login.username, user_login.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
+    if user.is_banned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="账号已被封禁，如有疑问请联系管理员"
+        )
 
     access_token = AuthService.create_user_token(user)
 

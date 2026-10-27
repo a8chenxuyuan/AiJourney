@@ -39,7 +39,7 @@
 
 **校验与收尾类（3 个）**：
 9. **BudgetAgent**：统计门票、餐饮、住宿、交通预算
-10. **HumanInTheLoop**：人机协同节点（当前自动放行，预留扩展）
+10. **HumanInTheLoop**：人机协同节点（M3：预算超支暂停审批 + 断点续跑）
 11. **Finalize**：把结果写入数据库，更新版本链
 
 ### 1.4 编排层的技术实现
@@ -315,9 +315,9 @@ State 里包含的关键字段：
 
 **职责**：在关键决策点暂停，等待用户确认。
 
-**当前实现**：自动放行，返回 `{ "auto_approved": True }`。
+**当前实现（M3 真 HITL）**：预算超支时不再自动放行——BudgetAgent 判定超支后，节点写 checkpoint、把任务置为 `pending_approval` 并推送审批事件，任务正常返回暂停；用户经 `POST /api/trip/{plan_id}/approve` 审批通过后，系统从断点 checkpoint 续跑剩余节点；未超支则直接通过。
 
-**预留扩展**：未来可以在这里实现“生成 2-3 个候选方案，让用户选一个再继续”，或者“遇到高预算时询问用户是否确认”。
+**预留扩展**：未来可以在这里实现“生成 2-3 个候选方案，让用户选一个再继续”等更多二选一决策场景。
 
 ---
 
@@ -456,7 +456,7 @@ ReAct 的核心是“思考 → 行动 → 观察 → 再思考”的循环。�
 
 ### 6.1 Prompt 写在哪里
 
-所有 Agent 的 Prompt 统一放在 `app/agents/prompts.py` 中，按 Agent 分块管理。这样做的好处是：
+所有 Agent 的 Prompt 外置在 `backend/workspace/prompts/*.md` 中（按 Agent 一个文件），由 `app/agentkit/prompt_loader.py` 惰性加载，修改 md 文件即生效。这样做的好处是：
 - 修改 Prompt 不需要改业务逻辑
 - 方便版本控制和 A/B 测试
 - 面试时可以说“我们把 Prompt 当作配置文件来管理”

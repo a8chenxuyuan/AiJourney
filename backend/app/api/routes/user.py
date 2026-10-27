@@ -17,45 +17,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.db.session import get_db
+from app.core.db.session import get_db
 from app.models.db_models import Favorite, TripPlanDB, User
 from app.models.schemas import StandardResponse
 
 router = APIRouter()
-
-
-@router.get("/{user_id}/profile", response_model=StandardResponse)
-async def get_user_profile(
-    user_id: int,
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-):
-    """
-    获取指定用户资料。
-
-    当前用户只能查看自己的资料。
-
-    Args:
-        user_id: 用户 ID。
-        current_user: 当前登录用户。
-        session: 数据库会话。
-
-    Returns:
-        StandardResponse: 用户资料。
-    """
-    if current_user.id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看其他用户资料")
-
-    return StandardResponse(
-        success=True,
-        message="获取成功",
-        data={
-            "id": current_user.id,
-            "username": current_user.username,
-            "email": current_user.email,
-            "created_at": current_user.created_at.isoformat(),
-        },
-    )
 
 
 @router.get("/{user_id}/plans", response_model=StandardResponse)

@@ -1,12 +1,12 @@
 """旅行档案路由：当前用户的历史行程汇总与打卡统计（固定路径 /archive，需先于动态路由注册）。"""
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.db.session import get_db
-from app.models.db_models import TripCheckin, TripPlanDB, User
+from app.core.db.session import get_db
+from app.models.db_models import CommunityPost, TripCheckin, TripPlanDB, User
 from app.models.schemas import StandardResponse
 
 router = APIRouter()
@@ -56,6 +56,16 @@ async def get_archive(
     for c in all_checkins:
         checkin_by_plan[c.plan_id] = checkin_by_plan.get(c.plan_id, 0) + 1
 
+    # 旅行圈发布数（含旅行圈与笔记两种分区，仅已发布）
+    post_total = (
+        await session.execute(
+            select(func.count()).select_from(CommunityPost).where(
+                CommunityPost.user_id == current_user.id,
+                CommunityPost.status == "published",
+            )
+        )
+    ).scalar() or 0
+
     # 城市去重集合：单城用 city，多城展开 cities_json
     cities: set[str] = set()
     plan_items = []
@@ -88,6 +98,7 @@ async def get_archive(
                 "cities": sorted(cities),
                 "checkin_total": checkin_total or 0,
                 "photo_total": photo_total or 0,
+                "post_total": int(post_total),
                 "first_checkin_at": first_at,
                 "last_checkin_at": last_at,
             },

@@ -1,0 +1,14 @@
+# agent1 后端编码规范检查配置
+line-length = 120
+target-version = "py312"
+
+[lint]
+# E 基础语法 / F 未定义与未使用 / W 警告 / I import 排序
+select = ["E", "F", "W", "I"]
+ignore = []
+
+[lint.per-file-ignores]
+# FastAPI Depends() 在默认参数中是框架惯例
+"app/api/*.py" = ["B008"]
+# 脚本允许 print 输出、sys.path 引导后的 E402
+"scripts/*.py" = ["T201", "E402"]

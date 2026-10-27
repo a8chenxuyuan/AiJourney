@@ -8,10 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_accessible_plan, get_current_user
-from app.db.session import get_db
+from app.core.db.session import get_db
+from app.core.utils.queue import enqueue_journal_task
 from app.models.db_models import TripJournal, TripPlanDB, User
 from app.models.schemas import JournalUpdateRequest, StandardResponse
-from app.utils.queue import enqueue_journal_task
 
 router = APIRouter()
 
@@ -144,3 +144,82 @@ async def update_journal(
     await session.refresh(journal)
 
     return StandardResponse(success=True, message="保存成功", data=_journal_out(journal))
+
+
+@router.post("/{plan_id}/journal/publish", response_model=StandardResponse)
+async def publish_journal(
+    plan: TripPlanDB = Depends(get_accessible_plan),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    将游记设为公开（第二阶段内容回流入口）。
+
+    仅游记作者可操作，且游记须已生成完成（done）；首次公开时生成
+    public_token，公开后游记进入 /api/journals/featured 与攻略流。
+
+    Args:
+        plan: 访问校验通过的行程计划。
+        current_user: 当前登录用户。
+        session: 数据库会话。
+
+    Returns:
+        StandardResponse: is_public 与 public_token（前端拼分享链接 /journal/{token}）。
+    """
+    result = await session.execute(select(TripJournal).where(TripJournal.plan_id == plan.id))
+    journal = result.scalar_one_or_none()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="游记尚未生成")
+    if journal.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅游记作者可以设为公开")
+    if journal.status != "done":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="游记尚未生成完成，无法公开"
+        )
+
+    journal.is_public = True
+    if not journal.public_token:
+        journal.public_token = uuid.uuid4().hex
+    await session.commit()
+    await session.refresh(journal)
+
+    return StandardResponse(
+        success=True,
+        message="游记已公开",
+        data={"is_public": True, "public_token": journal.public_token},
+    )
+
+
+@router.post("/{plan_id}/journal/unpublish", response_model=StandardResponse)
+async def unpublish_journal(
+    plan: TripPlanDB = Depends(get_accessible_plan),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    取消游记公开（保留 public_token，重新公开后链接不变）。
+
+    Args:
+        plan: 访问校验通过的行程计划。
+        current_user: 当前登录用户。
+        session: 数据库会话。
+
+    Returns:
+        StandardResponse: is_public=False。
+    """
+    result = await session.execute(select(TripJournal).where(TripJournal.plan_id == plan.id))
+    journal = result.scalar_one_or_none()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="游记尚未生成")
+    if journal.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅游记作者可以操作")
+
+    journal.is_public = False
+    await session.commit()
+    await session.refresh(journal)
+
+    return StandardResponse(
+        success=True,
+        message="游记已取消公开",
+        data={"is_public": False, "public_token": journal.public_token},
+    )

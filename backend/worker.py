@@ -21,8 +21,11 @@ from arq import cron, run_worker
 from arq.connections import RedisSettings
 from loguru import logger
 
-from app.config import settings
-from app.db.init_db import init_db
+from app.core.config import settings
+from app.core.db.init_db import init_db
+from app.core.utils.logger import setup_logging
+from app.core.utils.queue import enable_redis_keepalive
+from app.services.trip_task_service import find_resumable_plans
 from app.tasks import (
     run_crawler_task,
     run_journal_task,
@@ -31,8 +34,6 @@ from app.tasks import (
     run_revision_task,
     run_weather_check_task,
 )
-from app.utils.logger import setup_logging
-from app.utils.queue import enable_redis_keepalive
 
 # 进程级 Redis 保活补丁：必须在 arq 建池之前应用（对 run_worker 内部的建池同样生效）
 enable_redis_keepalive()
@@ -48,6 +49,27 @@ async def startup(ctx: dict) -> None:
     """
     setup_logging()
     await init_db()
+
+    # M2 断点续跑：扫描上次异常中断的规划任务（status=running 且有断点快照），
+    # 从 batch_index+1 重新入队；claim CAS 保证即使扫描出多条也只有一个执行方
+    try:
+        resumable = await find_resumable_plans()
+        for item in resumable:
+            logger.warning(
+                f"[Resume] 检测到中断任务 plan={item['plan_id']}，"
+                f"从批次 {item['start_batch']} 续跑"
+            )
+            await ctx["redis"].enqueue_job(
+                "run_planning_task",
+                item["plan_id"],
+                item["request"],
+                item["user_id"],
+                start_batch=item["start_batch"],
+            )
+    except Exception as exc:
+        # 启动期续跑扫描失败不阻断 Worker 运行
+        logger.warning(f"启动时断点续跑扫描失败（不影响 Worker 运行）: {exc}")
+
     try:
         await run_weather_check_task(ctx)
     except Exception as exc:

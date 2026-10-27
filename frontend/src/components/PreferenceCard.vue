@@ -34,7 +34,7 @@ import {
 // 引入 ECharts
 import * as echarts from 'echarts'
 // 引入偏好 API 与类型
-import { getMyPreference, updateMyPreference, type UserPreference } from '@/api/memory'
+import { getMyPreference, updateMyPreference, type UserPreference } from '@/api/trip/memory'
 
 /**
  * PreferenceCardProps：组件 props
@@ -95,10 +95,20 @@ const TAG_OPTIONS = [
 ]
 
 /**
- * labelOf：按选项字典把 value 转为中文标签
+ * labelOf：按选项字典把 value 转为中文标签。
+ * 兼容数组值（模型字段为 JSON list）：逐项翻译后拼接；空数组/空串显示「未设置」，
+ * 避免空值渲染成空豆腐块。
  */
-const labelOf = (options: Array<{ value: string; label: string }>, value: string | null) =>
-  options.find((o) => o.value === value)?.label || value || '—'
+const labelOf = (
+  options: Array<{ value: string; label: string }>,
+  value: string | string[] | null
+): string => {
+  if (Array.isArray(value)) {
+    if (!value.length) return '未设置'
+    return value.map((v) => options.find((o) => o.value === v)?.label || v).join('、')
+  }
+  return options.find((o) => o.value === value)?.label || value || '未设置'
+}
 
 /**
  * radarOption：五维偏好雷达图配置

@@ -27,7 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_accessible_plan, get_current_user, get_owned_plan
-from app.db.session import get_db
+from app.core.db.session import get_db
 from app.models.db_models import PlanCollaborator, PlanInvite, TripPlanDB, User
 from app.models.schemas import (
     CollaboratorJoinOut,

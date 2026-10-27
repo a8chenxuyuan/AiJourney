@@ -6,7 +6,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_accessible_plan, get_current_user
-from app.db.session import get_db
+from app.core.db.session import get_db
 from app.models.db_models import (
     CommunityPost,
     PlanCollaborator,

@@ -23,6 +23,8 @@ export default defineConfig({
   },
   // server：开发服务器配置
   server: {
+    // host：监听 0.0.0.0，允许局域网内其他设备通过本机 IP 访问（手机/第二台电脑联调）
+    host: true,
     // port：开发服务器监听端口
     port: 5173,
     // open：启动时是否自动打开浏览器

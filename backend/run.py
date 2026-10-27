@@ -14,7 +14,7 @@ backend/run.py
 
 import uvicorn
 
-from app.config import settings
+from app.core.config import settings
 
 
 def main() -> None:

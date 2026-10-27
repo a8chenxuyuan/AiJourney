@@ -6,11 +6,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.tools import get_weather
 from app.api.deps import get_accessible_plan
-from app.db.session import get_db
+from app.core.db.session import get_db
 from app.models.db_models import TripCheckin, TripPlanDB
 from app.models.schemas import StandardResponse
+from app.planning.tools.amap_tools import get_weather
 from app.services.amap_service import AmapService
 from app.services.memory_service import MemoryService
 

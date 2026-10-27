@@ -19,7 +19,10 @@ export interface StandardResponse<T = any> {
 }
 
 // API_BASE_URL：后端 API 基地址，优先读取环境变量，默认值为 http://localhost:8000/api
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+// API 基地址：默认跟随当前访问主机名（本机 localhost / 局域网 IP 均可用），
+// 可用 VITE_API_BASE_URL 显式覆盖
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8000/api`
 
 /**
  * request：统一封装的 axios 实例

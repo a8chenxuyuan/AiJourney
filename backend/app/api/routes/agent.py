@@ -24,12 +24,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.streaming import get_logs_after
 from app.api.deps import get_owned_plan, get_owned_plan_for_user
-from app.db.session import AsyncSessionLocal, get_db
+from app.core.db.session import AsyncSessionLocal, get_db
+from app.core.sse import get_logs_after
+from app.core.utils.security import decode_access_token
 from app.models.db_models import TripPlanDB, User
 from app.models.schemas import HumanDecisionRequest, StandardResponse
-from app.utils.security import decode_access_token
 
 router = APIRouter()
 

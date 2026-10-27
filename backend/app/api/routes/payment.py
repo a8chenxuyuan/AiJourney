@@ -14,12 +14,12 @@ backend/app/api/routes/payment.py
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.db.session import get_db
+from app.core.db.session import get_db
 from app.models.db_models import Order, User
 from app.models.schemas import PaymentCreateRequest, StandardResponse
 from app.services.payment_service import PaymentService
@@ -81,32 +81,103 @@ async def create_payment(
 
 @router.get("/orders", response_model=StandardResponse)
 async def list_orders(
-    plan_id: str,
+    plan_id: str | None = Query(default=None, description="可选，按行程过滤；不传返回全部订单"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """
-    查询当前用户在指定行程下的订单列表。
+    查询当前用户的订单列表。
 
-    用于结果页展示"已预订"徽标与订单记录。
+    传 plan_id 时用于结果页展示"已预订"徽标；不传用于「我的订单」页全量展示。
 
     Args:
-        plan_id: 行程计划 ID（查询参数）。
+        plan_id: 行程计划 ID（可选查询参数）。
         current_user: 当前登录用户。
         session: 数据库会话。
 
     Returns:
         StandardResponse: 订单摘要列表，按创建时间倒序。
     """
-    result = await session.execute(
-        select(Order)
-        .where(Order.user_id == current_user.id, Order.plan_id == plan_id)
-        .order_by(Order.created_at.desc())
-    )
+    stmt = select(Order).where(Order.user_id == current_user.id)
+    if plan_id:
+        stmt = stmt.where(Order.plan_id == plan_id)
+    result = await session.execute(stmt.order_by(Order.created_at.desc()))
     orders: list[Order] = list(result.scalars().all())
 
     return StandardResponse(
         success=True, message="查询成功", data={"orders": [_order_to_dict(o) for o in orders]}
+    )
+
+
+async def _get_owned_order(
+    order_id: str, current_user: User, session: AsyncSession
+) -> Order:
+    """按 ID 取属于当前用户的订单，不存在或非本人统一 404。"""
+    order = await session.get(Order, order_id)
+    if not order or order.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
+    return order
+
+
+@router.post("/{order_id}/pay", response_model=StandardResponse)
+async def pay_order(
+    order_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    沙箱收银台确认支付。
+
+    真实环境中此处应跳第三方收银台并在回调（/notify）中更新状态；
+    沙箱下由登录用户在本端点直接确认，置为已支付。
+
+    Args:
+        order_id: 订单 ID。
+        current_user: 当前登录用户。
+        session: 数据库会话。
+
+    Returns:
+        StandardResponse: 支付后的订单信息。
+    """
+    order = await _get_owned_order(order_id, current_user, session)
+    if order.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="订单已支付或已取消，无需重复支付"
+        )
+    order = await PaymentService.process_payment_notification(session, order_id, {"sandbox": True})
+    data = {**_order_to_dict(order), "payment_params": PaymentService.build_payment_params(order)}
+
+    return StandardResponse(success=True, message="支付成功", data=data)
+
+
+@router.post("/{order_id}/cancel", response_model=StandardResponse)
+async def cancel_order(
+    order_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    取消待支付订单。
+
+    Args:
+        order_id: 订单 ID。
+        current_user: 当前登录用户。
+        session: 数据库会话。
+
+    Returns:
+        StandardResponse: 取消后的订单信息。
+    """
+    order = await _get_owned_order(order_id, current_user, session)
+    if order.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="仅待支付订单可取消"
+        )
+    order.status = "cancelled"
+    await session.flush()
+    await session.refresh(order)
+
+    return StandardResponse(
+        success=True, message="订单已取消", data=_order_to_dict(order)
     )
 
 
@@ -131,10 +202,14 @@ async def get_order(
     if not order or order.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
 
+    # 返回订单摘要 + 支付参数（收银台页需要 plan_id/amount/status 全量信息）
     return StandardResponse(
         success=True,
         message="查询成功",
-        data=PaymentService.to_payment_response(order).model_dump(),
+        data={
+            **_order_to_dict(order),
+            "payment_params": PaymentService.build_payment_params(order),
+        },
     )
 
 

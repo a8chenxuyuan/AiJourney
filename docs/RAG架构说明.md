@@ -68,7 +68,7 @@ RAG 的思路是：**用时才检索真实数据源，把检索结果喂给 LLM�
 │                         应用层                                │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
 │  │ 前端 Result  │  │ 前端 Planning│  │   Agent 工作流    │   │
-│  │   .vue       │  │    .vue      │  │   nodes.py       │   │
+│  │   .vue       │  │    .vue      │  │   nodes/         │   │
 │  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘   │
 └─────────┼─────────────────┼───────────────────┼─────────────┘
           │                 │                   │
@@ -77,7 +77,7 @@ RAG 的思路是：**用时才检索真实数据源，把检索结果喂给 LLM�
 │                         Agent 层                              │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
 │  │ AttractionAgent │  │   HotelAgent    │  │ PlannerAgent │ │
-│  │   (nodes.py)    │  │    (nodes.py)   │  │  (nodes.py)  │ │
+│  │  attraction.py  │  │     hotel.py    │  │  planner.py  │ │
 │  └────────┬────────┘  └────────┬────────┘  └──────┬───────┘ │
 │           │                    │                   │         │
 │           ▼                    ▼                   ▼         │
@@ -104,12 +104,12 @@ RAG 的思路是：**用时才检索真实数据源，把检索结果喂给 LLM�
 
 | 组件 | 文件 | 作用 |
 |------|------|------|
-| RAGService | `backend/app/services/rag_service.py` | 封装向量检索、文档入库、搜索优先/外部搜索联动 |
+| RAGService | `backend/app/services/rag_service.py` | services 层门面：组合向量检索、文档入库、搜索优先/外部搜索联动（实现下沉 `backend/app/rag/`） |
 | BaikeService | `backend/app/services/baike_service.py` | 百度百科外部搜索，无需 API Key |
 | Embedding | `sentence-transformers` | 将文本转为向量 |
 | 向量数据库 | `Qdrant` | 存储向量，支持相似度检索 |
-| AttractionAgent | `backend/app/agents/nodes.py` | 调用 RAG 为景点补充背景知识 |
-| PlannerAgent | `backend/app/agents/nodes.py` | 基于候选景点 + RAG 上下文生成行程 |
+| AttractionAgent | `backend/app/planning/agents/attraction.py` | 调用 RAG 为景点补充背景知识 |
+| PlannerAgent | `backend/app/planning/agents/planner.py` | 基于候选景点 + RAG 上下文生成行程 |
 
 ---
 
@@ -494,7 +494,7 @@ async def search(self, query, city=None, use_cache=True):
 
 ### 6.2 AttractionAgent 中 RAG 调用代码
 
-**文件：** [nodes.py → attraction_agent_node](file:///d%3A/agent1/backend/app/agents/nodes.py#L596-L637)
+**文件：** `backend/app/agents/nodes/attraction.py`（`attraction_agent_node`）
 
 ```python
 if attractions:
@@ -731,12 +731,12 @@ Agent              RAGService         Qdrant           BaikeService
 
 | 文件 | 作用 |
 |------|------|
-| `backend/app/services/rag_service.py` | RAG 核心服务，向量检索 + 外部搜索联动 |
+| `backend/app/services/rag_service.py` | services 层 RAG 门面，向量检索 + 外部搜索联动（实现下沉 `backend/app/rag/`：vector_store / retriever / knowledge_cache） |
 | `backend/app/services/baike_service.py` | 百度百科外部搜索服务 |
-| `backend/app/agents/nodes.py` | AttractionAgent、PlannerAgent 调用 RAG |
-| `backend/app/agents/prompts.py` | PlannerAgent 提示词 |
+| `backend/app/planning/agents/`（attraction.py、planner.py 等） | AttractionAgent、PlannerAgent 调用 RAG |
+| `backend/workspace/prompts/`（planner_system_prompt.md 等） | PlannerAgent 提示词（外置 md，经 agentkit/prompt_loader 加载） |
 | `backend/app/models/schemas.py` | Attraction 等数据模型 |
-| `backend/app/config.py` | Qdrant、Embedding 模型配置 |
+| `backend/app/core/config.py` | Qdrant、Embedding 模型配置 |
 | `docs/项目改进计划.md` | 项目改进记录 |
 | `docs/问题排查记录.md` | 问题排查记录（含 RAG 相关问题） |
 

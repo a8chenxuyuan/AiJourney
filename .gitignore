@@ -4,6 +4,7 @@ backend/.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
 backend/.env
 backend/*.db
 backend/data/

@@ -19,10 +19,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
+from app.core.db.session import get_db
+from app.core.utils.security import decode_access_token
 from app.models.db_models import PlanCollaborator, TripPlanDB, User
 from app.services.auth_service import AuthService
-from app.utils.security import decode_access_token
 
 # HTTP Bearer 认证方案，用于从请求头中提取 Authorization: Bearer <token>
 oauth2_scheme = HTTPBearer(auto_error=False)
@@ -93,7 +93,36 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # 封禁用户：token 层统一拦截，所有需登录接口立即失效
+    if user.is_banned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="账号已被封禁，如有疑问请联系管理员",
+        )
+
     return user
+
+
+async def get_current_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    管理员鉴权依赖：在 get_current_user 基础上校验角色，非 admin 一律 403。
+
+    供 /api/admin 路由组统一使用，保证管理接口不会被普通用户访问。
+
+    Returns:
+        User: 角色为 admin 的当前用户对象。
+
+    Raises:
+        HTTPException: 当前用户不是管理员时抛出 403。
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限",
+        )
+    return current_user
 
 
 async def get_owned_plan_for_user(

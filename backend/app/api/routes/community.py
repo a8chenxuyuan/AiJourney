@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.db.session import get_db
+from app.core.db.session import get_db
 from app.models.db_models import (
     CommunityPost,
     PlanCollaborator,
@@ -32,6 +32,7 @@ from app.models.schemas import (
     PostCreateRequest,
     StandardResponse,
 )
+from app.services.notification_service import push_notification
 
 router = APIRouter()
 
@@ -318,6 +319,7 @@ async def like_post(
 ):
     """点赞：uq_post_like 唯一约束防重复，冲突即幂等返回；计数原子 +1。"""
     post = await _get_published_post(post_id, session)
+    liked_new = True
     try:
         session.add(PostLike(post_id=post_id, user_id=current_user.id))
         await session.execute(
@@ -329,8 +331,18 @@ async def like_post(
     except IntegrityError:
         # 重复点赞：唯一约束冲突，回滚后幂等返回
         await session.rollback()
+        liked_new = False
     # 回读真实计数：重复点赞场景 update 已回滚，不能用加载值自增
     await session.refresh(post)
+    # 新点赞且非自赞：通知作者（flush 即可，请求结束 get_db 自动 commit）
+    if liked_new and post.user_id != current_user.id:
+        await push_notification(
+            session,
+            post.user_id,
+            current_user.id,
+            "like",
+            {"post_id": post_id, "post_title": (post.title or "")[:30]},
+        )
     return StandardResponse(
         success=True, message="已点赞", data={"liked": True, "like_count": post.like_count}
     )
@@ -408,7 +420,8 @@ async def create_comment(
     session: AsyncSession = Depends(get_db),
 ):
     """发评论：parent 必须是本帖顶级评论（仅二级，不做无限嵌套）；计数原子 +1。"""
-    await _get_published_post(post_id, session)
+    post = await _get_published_post(post_id, session)
+    parent = None
     if payload.parent_id:
         parent = await session.get(PostComment, payload.parent_id)
         if not parent or parent.post_id != post_id or parent.parent_id is not None:
@@ -430,6 +443,24 @@ async def create_comment(
         .values(comment_count=CommunityPost.comment_count + 1)
     )
     await session.commit()
+    # 通知：评论通知帖作者；回复另通知被回复人（都排除自己触发）
+    excerpt = payload.content[:30]
+    if post.user_id != current_user.id:
+        await push_notification(
+            session,
+            post.user_id,
+            current_user.id,
+            "comment",
+            {"post_id": post_id, "post_title": (post.title or "")[:30], "excerpt": excerpt},
+        )
+    if parent and parent.user_id not in (current_user.id, post.user_id):
+        await push_notification(
+            session,
+            parent.user_id,
+            current_user.id,
+            "reply",
+            {"post_id": post_id, "post_title": (post.title or "")[:30], "excerpt": excerpt},
+        )
     return StandardResponse(
         success=True,
         message="评论成功",

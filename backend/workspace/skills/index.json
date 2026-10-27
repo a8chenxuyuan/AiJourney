@@ -1,0 +1,26 @@
+[
+  {
+    "name": "skill_family_trip",
+    "file": "family_trip.md",
+    "tags": ["亲子", "带孩子", "家庭", "儿童"],
+    "summary": "亲子出行编排守则：节奏放缓、动线简单、孩子友好场所优先"
+  },
+  {
+    "name": "skill_budget_trip",
+    "file": "budget_trip.md",
+    "tags": ["穷游", "省钱", "经济", "预算", "性价比"],
+    "summary": "穷游省钱编排守则：免费景点优先、公共交通、平价餐饮"
+  },
+  {
+    "name": "skill_foodie_trip",
+    "file": "foodie_trip.md",
+    "tags": ["美食", "吃货", "小吃", "餐饮"],
+    "summary": "美食专线编排守则：以地标餐厅为锚点排行程、留足用餐时间"
+  },
+  {
+    "name": "skill_photography_trip",
+    "file": "photography_trip.md",
+    "tags": ["摄影", "拍照", "出片", "打卡"],
+    "summary": "摄影打卡编排守则：黄金时段安排机位景点、单日景点数克制"
+  }
+]

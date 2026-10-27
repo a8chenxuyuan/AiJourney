@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_accessible_plan, get_current_user
-from app.db.session import get_db
+from app.core.db.session import get_db
+from app.core.utils.queue import enqueue_recalculate_task, enqueue_revision_task
 from app.models.db_models import (
     PlanFeedback,
     PlanRevision,
@@ -22,7 +23,6 @@ from app.models.schemas import (
     TripRequest,
 )
 from app.services.memory_service import MemoryService
-from app.utils.queue import enqueue_recalculate_task, enqueue_revision_task
 
 router = APIRouter()
 

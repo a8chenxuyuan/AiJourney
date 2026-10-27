@@ -16,9 +16,9 @@ backend/app/services/auth_service.py
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.utils.security import create_access_token, get_password_hash, verify_password
 from app.models.db_models import User
 from app.models.schemas import UserCreate, UserResponse
-from app.utils.security import create_access_token, get_password_hash, verify_password
 
 
 class AuthService:

@@ -1,7 +1,7 @@
 """
 backend/app/__init__.py
 
-agent1旅行 后端应用包初始化文件。
+旅程 后端应用包初始化文件。
 
 作用：
 - 标识 app 目录为一个 Python 包；

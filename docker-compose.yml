@@ -34,7 +34,9 @@ services:
     image: redis:7.4-alpine
     container_name: agent1-redis
     restart: unless-stopped
-    # 不映射宿主机端口：宿主机 6379 已被本地 Redis 占用，容器内服务走内部网络
+    # 映射宿主机 6380（6379 已被其他项目容器占用）：本地开发的后端/Worker 连 127.0.0.1:6380
+    ports:
+      - "127.0.0.1:6380:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data

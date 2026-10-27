@@ -118,7 +118,7 @@ const toggleTag = (name: string) => emit('toggle-tag', name)
 
 /* ===== 玩法卡：深色渐变 ===== */
 .rail-play {
-  background: linear-gradient(165deg, #0e1f2b 0%, #143d57 100%);
+  background: linear-gradient(165deg, #1d2f28 0%, #2e4a3e 100%);
   box-shadow: 0 10px 26px rgba(10, 23, 32, 0.35);
 }
 .rail-play h4 {
@@ -152,7 +152,7 @@ const toggleTag = (name: string) => emit('toggle-tag', name)
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1677ff, #0aa5c2);
+  background: var(--grad-primary);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -196,12 +196,12 @@ const toggleTag = (name: string) => emit('toggle-tag', name)
   font-size: 11.5px;
 }
 .rail-tags button:hover {
-  border-color: #9dc6ff;
-  color: #1677ff;
+  border-color: #bcd8c9;
+  color: var(--brand);
 }
 .rail-tags button.on {
-  background: #1677ff;
-  border-color: #1677ff;
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
 }
 .rail-tags button.on i {

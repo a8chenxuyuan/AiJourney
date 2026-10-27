@@ -19,7 +19,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.config import settings
 from app.models.db_models import Order, TripPlanDB
 from app.models.schemas import PaymentResponse
 
@@ -98,7 +98,8 @@ class PaymentService:
                 "order_id": order.id,
                 "amount": order.amount,
                 "payment_method": order.payment_method,
-                "mock_pay_url": f"/api/payment/{order.id}/mock_pay",
+                "pay_url": f"/api/payment/{order.id}/pay",
+                "cancel_url": f"/api/payment/{order.id}/cancel",
             }
         # TODO: 接入真实支付宝/微信支付 SDK
         return {}

@@ -19,45 +19,55 @@ Agent 部分基于 **LangGraph** 构建，底层使用 **LangChain** 调用 LLM 
 ## 2. 目录与文件规划
 
 ```
-agent1旅行/backend/app/agents/
-├── __init__.py
-├── graph.py              # LangGraph StateGraph 定义与编译
-├── state.py              # TravelPlanningState 共享状态
-├── nodes.py              # 各 Agent 节点函数实现
-├── tools.py              # 工具定义与 MCP 工具加载
-├── prompts.py            # 各 Agent 系统提示词
-└── config.py             # Agent 运行配置
+agent1旅行/backend/app/
+├── planning/             # 编排层
+│   ├── graph.py          # 图构建（节点/边注册）+ 多城联游编排 + 运行入口
+│   ├── state.py          # TravelPlanningState 共享状态
+│   ├── agents/           # 各 Agent 节点函数实现（一个节点一个文件）
+│   │   ├── intent.py / attraction.py / weather.py / hotel.py
+│   │   ├── food.py / rag.py / route.py / planner.py
+│   │   ├── budget.py / patch.py / finalize.py
+│   │   └── _helpers.py   # 节点间共享辅助函数
+│   └── tools/            # 高德 POI / 天气 / 路线 / RAG / 酒店等工具封装（amap_tools.py 等）
+├── agentkit/             # Agent 框架层
+│   ├── executor.py       # 批次执行核心（NodeFunc/_merge_update/_run_node/_run_batches）
+│   ├── events.py         # 事件总线（实时日志，SSE 传输在 core/sse.py）
+│   ├── context.py / checkpoint.py / approval.py / skills.py
+│   ├── tool_registry.py / memory.py
+│   └── prompt_loader.py  # 惰性加载 workspace/prompts/*.md 各 Agent 系统提示词
+└── llm/
+    └── client.py         # LLM 客户端封装（get_llm，百炼）
 ```
 
 ---
 
 ## 3. 各文件作用与技术对应关系
 
-### 3.1 graph.py
+### 3.1 planning/graph.py + agentkit/executor.py
 
 | 项目 | 说明 |
 |------|------|
-| **对应技术** | LangGraph `StateGraph`、`Checkpointer`、`interrupt` |
-| **作用** | 整个 Agent 系统的「总控图」，定义所有节点、边、条件分支、循环，编译成可执行的 Graph 对象 |
-| **核心内容** | 1. 创建 `StateGraph(TravelPlanningState)`；2. 添加各 Agent 节点；3. 添加普通边和条件边；4. 编译图并附加 Checkpointer |
+| **对应技术** | 手动顺序/批次编排 + Python asyncio |
+| **作用** | `graph.py` 是整个 Agent 系统的「总控」：注册所有节点与批次、做多城联游的拆分/合并编排；批次内节点的实际执行与状态合并在 `executor.py`（`_run_node` / `_run_batches`） |
+| **核心内容** | 1. 按批次注册各 Agent 节点（`get_planning_graph`）；2. 多城联游：`split_cities_node` 拆分城市、各城子图并行、`city_gather_node` / `route_multi_node` 合并城际交通；3. 对外入口 `run_planning_graph` / `run_revision_graph` / `run_recalculate_graph` |
 
-### 3.2 state.py
+### 3.2 planning/state.py
 
 | 项目 | 说明 |
 |------|------|
 | **对应技术** | Python `TypedDict` / Pydantic BaseModel |
-| **作用** | 定义整个 LangGraph 工作流中所有节点共享的状态结构 |
+| **作用** | 定义整个工作流中所有节点共享的状态结构 |
 | **核心内容** | `TravelPlanningState`，包含用户请求、中间产物（景点、酒店、天气、路线矩阵、RAG 上下文）、候选方案、最终方案、日志、错误、人机决策、反馈 |
 
-### 3.3 nodes.py
+### 3.3 planning/agents/（节点包）
 
 | 项目 | 说明 |
 |------|------|
-| **对应技术** | LangChain + LangGraph + Pydantic |
-| **作用** | 实现每一个 Agent 节点的具体逻辑，每个节点接收 State，返回对 State 的更新 |
-| **核心内容** | `intent_node`、`attraction_node`、`weather_node`、`hotel_node`、`rag_node`、`route_node`、`planner_node`、`budget_node`、`human_node`、`reflect_node` |
+| **对应技术** | LangChain + Pydantic |
+| **作用** | 实现每一个 Agent 节点的具体逻辑，每个节点接收 State，返回对 State 的更新；一个节点一个文件 |
+| **核心内容** | `intent.py`、`attraction.py`、`weather.py`、`hotel.py`、`rag.py`、`food.py`、`route.py`、`planner.py`、`budget.py`、`patch.py`、`finalize.py`，公共辅助在 `_helpers.py` |
 
-### 3.4 tools.py
+### 3.4 planning/tools/
 
 | 项目 | 说明 |
 |------|------|
@@ -65,13 +75,13 @@ agent1旅行/backend/app/agents/
 | **作用** | 定义和注册 Agent 可调用的所有工具，包括 MCP 加载的高德地图工具和自定义工具 |
 | **核心内容** | `load_mcp_tools`、`search_poi_tool`、`get_weather_tool`、`plan_route_tool`、`retrieve_city_guide_tool`、`cluster_attractions_tool` |
 
-### 3.5 prompts.py
+### 3.5 提示词（workspace/prompts/*.md + agentkit/prompt_loader.py）
 
 | 项目 | 说明 |
 |------|------|
-| **对应技术** | LangChain PromptTemplate / ChatPromptTemplate |
-| **作用** | 集中管理所有 Agent 的系统提示词，方便统一调整 |
-| **核心内容** | `INTENT_AGENT_PROMPT`、`ATTRACTION_AGENT_PROMPT`、`PLANNER_AGENT_PROMPT`、`REFLECT_AGENT_PROMPT` 等 |
+| **对应技术** | Markdown 文件 + 惰性加载器 |
+| **作用** | 所有 Agent 的系统提示词外置为 `backend/workspace/prompts/*.md`（按 Agent 一个文件），由 `app/agentkit/prompt_loader.py` 惰性加载，修改 md 即生效，方便统一调整 |
+| **核心内容** | 按 Agent 命名的提示词 md 文件（intent / planner / attraction 等） |
 
 ### 3.6 config.py
 
@@ -404,11 +414,11 @@ graph.invoke(None, config={"thread_id": plan_id}, resume=True)
 
 | Agent 层 | 后端其他模块 |
 |----------|--------------|
-| `graph.py` 被 `api/routes/trip.py` 调用 | 接收 HTTP 请求并返回 plan_id |
+| `graph.py` 被行程域路由（`api/routes/trip/`）与 arq 任务（`app/tasks.py` → `services/trip_task_service.py`）调用 | 接收 HTTP 请求/任务入队并返回 plan_id |
 | `api/routes/agent.py` 读取 State | 提供 SSE 流和人机协同接口 |
 | `tools.py` 调用 `services/amap_service.py` | 通过 MCP 获取高德数据 |
 | `RAGAgent` 调用 `services/rag_service.py` | 从 Qdrant 检索知识库 |
 | `ReflectAgent` 调用 `services/memory_service.py` | 持久化用户偏好 |
-| `nodes.py` 使用 `services/llm_service.py` | 统一调用百炼 LLM |
+| `planning/agents/` 各节点使用 `llm/client.py` | 统一调用百炼 LLM |
 
 Agent 层不直接操作数据库，所有持久化都通过 Service 层完成，保持职责清晰。
